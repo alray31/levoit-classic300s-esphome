@@ -19,7 +19,6 @@ NumberKind = lv_classic300s_humidifier_ns.enum("NumberKind", is_class=True)
 CONF_MANUAL_LEVEL = "manual_level"
 CONF_AUTO_TARGET_HUMIDITY = "auto_target_humidity"
 CONF_SLEEP_TARGET_HUMIDITY = "sleep_target_humidity"
-CONF_NIGHT_LIGHT = "night_light"
 
 # The MCU protocol accepts humidity targets outside this range too (see
 # docs/A5_UART_protocol.md), but this covers what the stock app exposes.
@@ -38,11 +37,6 @@ CONFIG_SCHEMA = cv.Schema(
         ).extend(cv.COMPONENT_SCHEMA),
         cv.Optional(CONF_AUTO_TARGET_HUMIDITY): HUMIDITY_NUMBER_SCHEMA,
         cv.Optional(CONF_SLEEP_TARGET_HUMIDITY): HUMIDITY_NUMBER_SCHEMA,
-        cv.Optional(CONF_NIGHT_LIGHT): number.number_schema(
-            LVClassic300SNumber,
-            unit_of_measurement=UNIT_PERCENT,
-            icon="mdi:led-outline",
-        ).extend(cv.COMPONENT_SCHEMA),
     }
 )
 
@@ -68,8 +62,4 @@ async def to_code(config):
     if CONF_SLEEP_TARGET_HUMIDITY in config:
         await _new_child_number(
             config[CONF_SLEEP_TARGET_HUMIDITY], parent, NumberKind.SLEEP_TARGET_HUMIDITY, 30, 80, 1
-        )
-    if CONF_NIGHT_LIGHT in config:
-        await _new_child_number(
-            config[CONF_NIGHT_LIGHT], parent, NumberKind.NIGHT_LIGHT, 0, 100, 1
         )

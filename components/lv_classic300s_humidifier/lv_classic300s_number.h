@@ -11,7 +11,6 @@ enum class NumberKind {
   MANUAL_LEVEL,
   AUTO_TARGET_HUMIDITY,
   SLEEP_TARGET_HUMIDITY,
-  NIGHT_LIGHT,
 };
 
 class LVClassic300SNumber : public number::Number, public Component {

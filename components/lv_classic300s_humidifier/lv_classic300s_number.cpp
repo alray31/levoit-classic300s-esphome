@@ -22,9 +22,6 @@ void LVClassic300SNumber::update_from_parent_() {
     case NumberKind::SLEEP_TARGET_HUMIDITY:
       this->publish_state(this->parent_->sleep_target());
       break;
-    case NumberKind::NIGHT_LIGHT:
-      this->publish_state(this->parent_->night_light_level());
-      break;
   }
 }
 
@@ -45,9 +42,6 @@ void LVClassic300SNumber::control(float value) {
     case NumberKind::SLEEP_TARGET_HUMIDITY:
       this->parent_->send_mode_sync_preamble();
       this->parent_->set_sleep_target(v);
-      break;
-    case NumberKind::NIGHT_LIGHT:
-      this->parent_->set_night_light(v);
       break;
   }
 

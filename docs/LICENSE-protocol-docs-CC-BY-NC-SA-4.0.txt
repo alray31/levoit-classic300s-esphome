@@ -1,0 +1,15 @@
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
+
+Copyright © 2026 Taxom.
+
+This repository contains reverse-engineered protocol documentation, notes, packet descriptions, tables, and illustrative examples for the Levoit Classic 300S UART protocol.
+
+The original contents of this repository are licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+
+You may share and adapt this material for non-commercial purposes only, provided that you give appropriate credit and distribute adaptations under the same or a compatible license.
+
+Commercial use is not permitted without separate written permission from the copyright holder.
+
+This repository documents observed protocol behavior. It does not claim ownership over independently discovered facts about the device protocol.
+
+SPDX-License-Identifier: CC-BY-NC-SA-4.0

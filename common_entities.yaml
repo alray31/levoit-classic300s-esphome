@@ -21,6 +21,10 @@ lv_classic300s_humidifier:
 
   power:
     name: "Power State"
+    id: power_state
+    on_state:
+      then:
+        - script.execute: update_night_light_notification
   tank_removed:
     name: "Tank Removed"
     id: tank_removed
@@ -114,9 +118,21 @@ light:
     id: night_light
     name: "Night Light"
     effects:
+      # NOTE: both effects below drive the *real* light over the same A5
+      # UART link used for status polling (there is no local GPIO LED --
+      # Night Light is a remote light on the appliance MCU). Each effect
+      # tick sends an actual UART command, so the update_interval doubles
+      # as the command rate on that bus. The original 40ms/250ms intervals
+      # (~25 and ~4 commands/sec) were fast enough to starve the MCU's
+      # replies to our periodic status polls, which froze tank_removed/
+      # water_empty/mist_active at stale values for as long as an effect
+      # was running -- so notifications never re-evaluated on their own.
+      # 400ms keeps both effects clearly visible while giving the bus room
+      # to breathe (pun intended). Step sizes are scaled up to match so the
+      # perceived cycle speed is unchanged.
       - lambda:
           name: "Error Flash"
-          update_interval: 250ms
+          update_interval: 400ms
           lambda: |-
             static bool led_on = false;
             led_on = !led_on;
@@ -126,11 +142,11 @@ light:
             call.perform();
       - lambda:
           name: "Breathe"
-          update_interval: 40ms
+          update_interval: 400ms
           lambda: |-
             static float level = 0.05f;
             static int8_t dir = 1;
-            level += dir * 0.01f;
+            level += dir * 0.1f;
             if (level >= 1.0f) {
               level = 1.0f;
               dir = -1;
@@ -242,6 +258,7 @@ interval:
 # Night Light behaves as a plain manually-controlled light.
 script:
   - id: update_night_light_notification
+    mode: restart
     then:
       - if:
           condition:

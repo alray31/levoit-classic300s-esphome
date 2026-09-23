@@ -1,0 +1,84 @@
+# Shared entity definitions, included by both hardware-variant YAML files
+# via `<<: !include common_entities.yaml`. The UART pins and esp32: block
+# differ per hardware variant and stay in the top-level files.
+
+lv_classic300s_humidifier:
+  id: humidifier
+  uart_id: a5_uart_bus
+  status_interval: 15s
+
+  current_humidity:
+    name: "Current Humidity"
+  target_humidity:
+    name: "Target Humidity"
+  temperature:
+    name: "Temperature"
+  night_light:
+    name: "Night Light Level"
+  output_level:
+    name: "Output Level"
+    icon: "mdi:water"
+
+  power:
+    name: "Power State"
+  tank_removed:
+    name: "Tank Removed"
+  water_empty:
+    name: "Water Empty"
+  mist_active:
+    name: "Mist Active"
+  display:
+    name: "Display State"
+  target_stop_active:
+    name: "Target Stop Active"
+
+  mode:
+    name: "Mode (raw)"
+    entity_category: diagnostic
+  error:
+    name: "Error Code"
+  last_status_frame:
+    name: "Last Status Frame"
+    entity_category: diagnostic
+
+  # The MCU reports physical power-button long-presses; stock firmware uses
+  # ~5s hold for WiFi pairing/reconnect and ~15s for factory reset. Wire up
+  # your own recovery behavior here -- a plain reboot is a reasonable start.
+  on_power_button_hold_5s:
+    - logger.log: "Power button held ~5s"
+  on_power_button_hold_15s:
+    - logger.log: "Power button held ~15s -- rebooting"
+    - button.press: restart_button
+
+switch:
+  - platform: lv_classic300s_humidifier
+    lv_classic300s_humidifier_id: humidifier
+    power:
+      name: "Power"
+    display:
+      name: "Display"
+    stop_at_target:
+      name: "Stop At Target"
+
+number:
+  - platform: lv_classic300s_humidifier
+    lv_classic300s_humidifier_id: humidifier
+    manual_level:
+      name: "Manual Mist Level"
+    auto_target_humidity:
+      name: "Auto Target Humidity"
+    sleep_target_humidity:
+      name: "Sleep Target Humidity"
+    night_light:
+      name: "Night Light"
+
+select:
+  - platform: lv_classic300s_humidifier
+    lv_classic300s_humidifier_id: humidifier
+    mode:
+      name: "Mode"
+
+button:
+  - platform: restart
+    id: restart_button
+    name: "Restart"

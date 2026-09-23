@@ -1,0 +1,60 @@
+# Levoit Classic 300S -- original WiFi module variant: ESP32-SOLO-1C / ESP32-S0WD.
+#
+# Use this file if `esptool.py flash_id` (or the module's own markings)
+# reports a classic single-core ESP32 (Xtensa), not an ESP32-C3.
+# See classic300s_esp32c3solo.yaml for the newer ESP32-C3-SOLO-1 variant.
+#
+# A5 UART protocol reverse-engineered by Maxim Pivovarov / MaxPi ("Taxom"):
+# https://github.com/Taxom/levoit-classic-300s-uart-protocol (CC BY-NC-SA 4.0)
+
+esphome:
+  name: levoit-classic300s
+  friendly_name: Levoit Classic 300S
+
+esp32:
+  board: esp32dev
+  variant: esp32
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_FREERTOS_UNICORE: y
+
+# UART0 (GPIO1/GPIO3) is also the flashing/serial pins -- disable UART
+# logging to avoid any interference and rely on WiFi/API logging instead.
+logger:
+  baud_rate: 0
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  ap:
+    ssid: "Levoit Classic 300S Fallback"
+    password: !secret ap_password
+
+captive_portal:
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [lv_classic300s_humidifier]
+
+# A5 bus to the appliance MCU. Original ESP32-SOLO-1C module pins.
+uart:
+  id: a5_uart_bus
+  rx_pin: GPIO16
+  tx_pin: GPIO17
+  baud_rate: 9600
+
+packages:
+  common: !include common_entities.yaml

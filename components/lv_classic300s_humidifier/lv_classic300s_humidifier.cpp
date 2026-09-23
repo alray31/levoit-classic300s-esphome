@@ -145,6 +145,18 @@ void LVClassic300SHumidifier::handle_frame_(const std::vector<uint8_t> &frame) {
 void LVClassic300SHumidifier::handle_status_payload_(const uint8_t *p, size_t len) {
   if (len < 20) return;
 
+  // Every field below is published only when it differs from the last
+  // known value, to avoid spamming HA on every 15s status poll. But that
+  // comparison is against a member variable that starts at a compile-time
+  // default (false / 0) -- so if a field's *actual first real reading*
+  // happens to equal that default (e.g. water_empty=false, tank_removed=
+  // false -- the normal, common case for both), it would never get its
+  // first publish_state() call, and the entity would sit at "Unknown" in
+  // HA indefinitely, until/unless that field ever actually changed.
+  // `first_status` forces one publish per field on the very first
+  // successfully parsed frame, regardless of whether it matches the
+  // default, so every entity gets a real initial value.
+  const bool first_status = !this->got_first_status_;
   this->got_first_status_ = true;
 
   const bool power = p[7] != 0;
@@ -163,31 +175,32 @@ void LVClassic300SHumidifier::handle_status_payload_(const uint8_t *p, size_t le
 
   const WorkMode mode = (mode_raw <= MODE_SLEEP) ? static_cast<WorkMode>(mode_raw) : MODE_UNKNOWN;
 
-  if (power != this->power_state_ && this->power_binary_sensor_ != nullptr)
+  if ((power != this->power_state_ || first_status) && this->power_binary_sensor_ != nullptr)
     this->power_binary_sensor_->publish_state(power);
   this->power_state_ = power;
 
-  if (tank_removed != this->tank_removed_ && this->tank_removed_sensor_ != nullptr)
+  if ((tank_removed != this->tank_removed_ || first_status) && this->tank_removed_sensor_ != nullptr)
     this->tank_removed_sensor_->publish_state(tank_removed);
   this->tank_removed_ = tank_removed;
 
-  if (water_empty != this->water_empty_ && this->water_empty_sensor_ != nullptr)
+  if ((water_empty != this->water_empty_ || first_status) && this->water_empty_sensor_ != nullptr)
     this->water_empty_sensor_->publish_state(water_empty);
   this->water_empty_ = water_empty;
 
-  if (target_stop_active != this->target_stop_active_ && this->target_stop_active_sensor_ != nullptr)
+  if ((target_stop_active != this->target_stop_active_ || first_status) &&
+      this->target_stop_active_sensor_ != nullptr)
     this->target_stop_active_sensor_->publish_state(target_stop_active);
   this->target_stop_active_ = target_stop_active;
 
-  if (display_on != this->display_state_ && this->display_binary_sensor_ != nullptr)
+  if ((display_on != this->display_state_ || first_status) && this->display_binary_sensor_ != nullptr)
     this->display_binary_sensor_->publish_state(display_on);
   this->display_state_ = display_on;
 
-  if (mist_active != this->mist_active_ && this->mist_active_sensor_ != nullptr)
+  if ((mist_active != this->mist_active_ || first_status) && this->mist_active_sensor_ != nullptr)
     this->mist_active_sensor_->publish_state(mist_active);
   this->mist_active_ = mist_active;
 
-  if (target_humidity != this->target_humidity_ && this->target_humidity_sensor_ != nullptr)
+  if ((target_humidity != this->target_humidity_ || first_status) && this->target_humidity_sensor_ != nullptr)
     this->target_humidity_sensor_->publish_state(target_humidity);
   this->target_humidity_ = target_humidity;
   // keep the per-mode target caches in sync so a later switch back to a mode
@@ -195,15 +208,15 @@ void LVClassic300SHumidifier::handle_status_payload_(const uint8_t *p, size_t le
   if (mode == MODE_AUTO) this->auto_target_ = target_humidity;
   if (mode == MODE_SLEEP) this->sleep_target_ = target_humidity;
 
-  if (current_humidity != this->current_humidity_ && this->current_humidity_sensor_ != nullptr)
+  if ((current_humidity != this->current_humidity_ || first_status) && this->current_humidity_sensor_ != nullptr)
     this->current_humidity_sensor_->publish_state(current_humidity);
   this->current_humidity_ = current_humidity;
 
-  if (temperature_c != this->temperature_c_ && this->temperature_sensor_ != nullptr)
+  if ((temperature_c != this->temperature_c_ || first_status) && this->temperature_sensor_ != nullptr)
     this->temperature_sensor_->publish_state(temperature_c);
   this->temperature_c_ = temperature_c;
 
-  if (mode != this->work_mode_ && this->mode_text_sensor_ != nullptr) {
+  if ((mode != this->work_mode_ || first_status) && this->mode_text_sensor_ != nullptr) {
     const char *mode_str = mode == MODE_AUTO ? "auto" : mode == MODE_MANUAL ? "manual"
                             : mode == MODE_SLEEP                            ? "sleep"
                                                                              : "unknown";
@@ -211,16 +224,16 @@ void LVClassic300SHumidifier::handle_status_payload_(const uint8_t *p, size_t le
   }
   this->work_mode_ = mode;
 
-  if (level != this->output_level_ && this->output_level_sensor_ != nullptr)
+  if ((level != this->output_level_ || first_status) && this->output_level_sensor_ != nullptr)
     this->output_level_sensor_->publish_state(level);
   this->output_level_ = level;
   if (mode == MODE_MANUAL) this->manual_level_ = level;
 
-  if (night_light != this->night_light_level_ && this->night_light_sensor_ != nullptr)
+  if ((night_light != this->night_light_level_ || first_status) && this->night_light_sensor_ != nullptr)
     this->night_light_sensor_->publish_state(night_light);
   this->night_light_level_ = night_light;
 
-  if (error_code != this->error_code_ && this->error_text_sensor_ != nullptr) {
+  if ((error_code != this->error_code_ || first_status) && this->error_text_sensor_ != nullptr) {
     std::string err;
     if (error_code == 0x00) {
       err = "ok";

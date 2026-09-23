@@ -5,6 +5,10 @@ firmware on a Levoit Classic 300S humidifier, talking directly to the
 appliance MCU over its proprietary `A5` UART protocol. Gives you local
 control in Home Assistant with no cloud/VeSync dependency.
 
+<img width="1254" height="1254" alt="image" src="https://github.com/user-attachments/assets/942bcc66-45e4-4f88-a31d-c65c1e05ad7c" />
+
+
+
 ## Table of contents
 
 1. [Credit](#credit)
@@ -157,7 +161,7 @@ you'll need to solder your own wires or pins to them to connect anything.
   supply, or a second USB-UART adapter used only for its 3V3/GND pins,
   works fine -- you do **not** need to power the appliance from mains for
   any of this)
-- A way to make temporary or soldered connections to 6 pads on the module:
+- A way to make temporary(pen probes with BDM frame) or soldered connections to 6 pads on the module:
   **3V3, GND, EN, IO0 (boot strap), RX, TX**
 - [`esptool`](https://github.com/espressif/esptool) and
   [ESPHome](https://esphome.io/) installed on your computer (`pip install
@@ -173,9 +177,8 @@ since EN and IO0 don't need to be shared/reused with other pins mid-procedure.
 
 ## Wiring
 
-1. **Remove the WiFi module from the appliance** so you can access its
-   header pads directly (no soldering to the appliance board itself is
-   needed).
+1. **Remove the WiFi/Display module assembly from the appliance** so you can access its
+   header pads directly.
 2. **Solder 6 wires** to the module's pads: `3V3`, `GND`, `EN`, `IO0`, `RX`,
    `TX`. `EN` and `IO0` are strapping pins used only to enter bootloader
    mode -- once you're done flashing you can leave them unconnected in
@@ -192,6 +195,10 @@ since EN and IO0 don't need to be shared/reused with other pins mid-procedure.
    "serial noise or corruption" errors from esptool).
 6. Double-check the supply is actually outputting **3.3V, not 5V**, before
    connecting anything -- 5V on these pins can damage the module.
+
+<img width="954" height="702" alt="image" src="https://github.com/user-attachments/assets/ef56d672-f113-40ef-a77d-9d6663cfd570" />
+<img width="998" height="2160" alt="20260923_151726" src="https://github.com/user-attachments/assets/1753b62b-0d05-4323-9845-d35abcd01483" />
+
 
 With that done, you have independent, always-available access to `EN` and
 `IO0` for bootloader entry, without needing to borrow/share pins with

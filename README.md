@@ -155,6 +155,8 @@ you'll need to solder your own wires or pins to them to connect anything.
 
 ## What you'll need
 
+- A Philips #2 screwdriver
+- A T20 screwdriver
 - A USB-UART TTL adapter (3.3V logic level -- **not** 5V) plugged into your
   computer
 - An external 3.3V power supply for the module during flashing (a bench
@@ -177,23 +179,33 @@ since EN and IO0 don't need to be shared/reused with other pins mid-procedure.
 
 ## Wiring
 
-1. **Remove the WiFi/Display module assembly from the appliance** so you can access its
+1. Remove the 7 Philips #2 screw (4 hidden under rubber pad) and T20 screw, remove the botttom cover:
+
+<img width="1446" height="1012" alt="image" src="https://github.com/user-attachments/assets/5d8eafbc-4652-44e1-bfd4-66283950d92f" />
+
+
+2. **Remove the 2 philips screw securing the the WiFi/Display module assembly bracket. Disconnect all cables fro the Wifi/Display module assembly. Remove the module from the appliance** so you can access its
    header pads directly.
-2. **Solder 6 wires** to the module's pads: `3V3`, `GND`, `EN`, `IO0`, `RX`,
+
+<img width="1335" height="1025" alt="image" src="https://github.com/user-attachments/assets/225527d6-6916-48c4-b71c-8f478ca88de9" />
+<img width="1876" height="865" alt="image" src="https://github.com/user-attachments/assets/df920f5d-4602-48f1-ab15-1a5b3ab0eef7" />
+
+   
+3. **Solder 6 wires** to the module's pads: `3V3`, `GND`, `EN`, `IO0`, `RX`,
    `TX`. `EN` and `IO0` are strapping pins used only to enter bootloader
    mode -- once you're done flashing you can leave them unconnected in
    normal use.
-3. **Power**: connect your external 3.3V supply's `3V3` and `GND` outputs
+4. **Power**: connect your external 3.3V supply's `3V3` and `GND` outputs
    to the module's `3V3`/`GND` wires. Do **not** power the module from the
    USB-UART adapter's own 3V3/5V pin -- use a proper external supply.
-4. **Data**: connect the USB-UART adapter's `RX` to the module's `TX`, and
+5. **Data**: connect the USB-UART adapter's `RX` to the module's `TX`, and
    the adapter's `TX` to the module's `RX` (crossed, as usual for UART).
-5. **Ground**: connect the USB-UART adapter's `GND` to the same ground as
+6. **Ground**: connect the USB-UART adapter's `GND` to the same ground as
    the power supply/module. This is easy to forget since the adapter isn't
    powering anything, but without a common ground reference the serial
    link will be unreliable or fail outright ("Invalid head of packet",
    "serial noise or corruption" errors from esptool).
-6. Double-check the supply is actually outputting **3.3V, not 5V**, before
+7. Double-check the supply is actually outputting **3.3V, not 5V**, before
    connecting anything -- 5V on these pins can damage the module.
 
 <img width="954" height="702" alt="image" src="https://github.com/user-attachments/assets/ef56d672-f113-40ef-a77d-9d6663cfd570" />

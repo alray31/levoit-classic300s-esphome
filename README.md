@@ -100,9 +100,42 @@ acts as a status indicator, on top of being a normal dimmable light:
 
 Turn the switch off and Night Light goes back to being a plain,
 manually-controlled light untouched by any of this. The logic lives in
-`common_entities.yaml` (`update_night_light_notification` script) -- tweak
-the flash speed, breathing speed, or priority order there if you want
-something different.
+`common_entities.yaml`, split across two scripts: `apply_night_light_state`
+(the actual problem > operating > idle decision) and
+`update_night_light_notification` (checks the switch, then delegates to the
+former) -- tweak the flash speed, breathing speed, or priority order in
+`apply_night_light_state` if you want something different. While an effect
+is running, the Night Light *entity* in Home Assistant doesn't flicker
+between the in-between brightness/on-off values each effect tick produces
+-- it only updates when you turn the effect on/off or control the light
+manually, so its state history stays meaningful. The physical light still
+pulses/flashes for real; only the HA-facing state is held steady.
+
+Two things worth knowing about how this interacts with the appliance
+itself, both confirmed by testing on real hardware:
+
+- **The front-panel display wakes up momentarily on *any* command sent to
+  the appliance over the A5 bus** -- this is the appliance's own MCU
+  behavior, not something this firmware does on purpose. Since the
+  breathing/flashing effects above are continuously sending real commands
+  to physically drive the Night Light LED, the display will stay lit for
+  as long as a notification effect is active, even if you've turned
+  **Display** off. There's no way to suppress this from the WiFi module
+  side -- it's baked into the main appliance board's firmware, which this
+  project doesn't touch.
+- The breathing/flashing effects send an actual UART command on every
+  update tick (there's no local GPIO LED for Night Light -- it's a remote
+  light on the appliance MCU), so their update interval doubles as a
+  command rate on the same bus used for status polling. Sending them too
+  fast (the original design used 40ms/250ms ticks) can starve the MCU's
+  replies to periodic status requests, which then freezes Tank
+  Removed/Water Empty/Mist Active at stale values for as long as an effect
+  is running -- so notifications stop reacting to real changes until
+  something forces a fresh check (like toggling the Notifications switch
+  itself). If you tune the effect speeds in `common_entities.yaml`, keep
+  this in mind; there's no precisely documented "safe" rate for the
+  appliance MCU, so treat any change as something to retest, not just
+  something to eyeball.
 
 ### Maintenance reminders
 
@@ -400,6 +433,26 @@ You'll still need a `secrets.yaml` next to this file with the same 5 keys as
 live locally -- and future fixes/features pushed to this repo show up on
 your next compile automatically.
 
+Both `external_components:` and `packages:` cache the GitHub clone for
+**24 hours by default** (`refresh: 1d`). If you're actively iterating on
+this repo and want your next compile to pick up a change you just pushed
+immediately, add `refresh: 0s` to the `external_components:` entry, and
+expand `packages:` to its long form to do the same:
+
+```yaml
+external_components:
+  - source: github://alray31/levoit-classic300s-esphome@main
+    components: [lv_classic300s_humidifier]
+    refresh: 0s
+
+packages:
+  common:
+    url: https://github.com/alray31/levoit-classic300s-esphome
+    files: [common_entities.yaml]
+    ref: main
+    refresh: 0s
+```
+
 ## Design notes worth knowing before you wire up automations
 
 - **Stop At Target vs Target Stop Active**: these are two different things.
@@ -418,6 +471,14 @@ your next compile automatically.
   MCU reports them via status frames, and this component listens
   continuously and updates accordingly. If you see state change without an
   ESPHome log line for a command, that's the physical panel being used.
+- **The front-panel display wakes up briefly on any command sent to the
+  appliance**, regardless of which entity that command came from -- this is
+  the appliance MCU's own behavior (see
+  [Night Light doubling as a status light](#night-light-doubling-as-a-status-light)),
+  not something this firmware controls. If Display is off and something
+  else you control (Night Light Notifications especially, since it sends
+  commands continuously while active) is sending commands, expect the
+  display to stay lit for as long as that keeps happening.
 - Target humidity range on the `number` entities is set to a conservative
   30-80% (see `components/lv_classic300s_humidifier/number.py`) since the
   exact MCU-enforced bounds aren't documented; widen it if your unit accepts
@@ -429,26 +490,36 @@ your next compile automatically.
 
 ## Status of this build
 
-Config validated with `esphome config` against ESPHome 2026.9.0 for both
-hardware variants (clean, no errors), and code generation (`esphome
-compile` up through C++ source generation) completes successfully,
-including the Night Light `light` entity, its notification effects, and
-the maintenance-reminder sensors. The final toolchain compile step
-(downloading the ESP-IDF build tools and invoking gcc) could not be
-completed in the sandbox this was built in, due to a network/TLS
-limitation of that environment unrelated to this code.
+Flashed and running on a real ESP32-C3-SOLO-1 unit. Core entities (sensors,
+binary sensors, switches, numbers, select) are confirmed working
+end-to-end, including reassembly onto the appliance and communication over
+the real A5 bus.
 
-This firmware has been flashed and tested successfully on a real
-ESP32-C3-SOLO-1 unit -- the core entities (sensors, binary sensors,
-switches, numbers, select) are confirmed working end-to-end, including
-reassembly onto the appliance and communication over the real A5 bus. The
-Night Light `light` entity, its notification effects, and the maintenance
-reminders are newer additions that have passed config validation and C++
-code generation, with the light output class's API usage checked directly
-against ESPHome's installed `light` component source, but have **not** yet
-been flash-tested on real hardware. If your `esphome run`/`compile` turns
-up an error, it's most likely a small, fixable issue in one of those newer
-files -- report it back with the compiler output.
+The Night Light `light` entity and its notification effects
+(breathing/flashing) are also flash-tested and working now, after a few
+rounds of fixes driven by real-hardware testing:
+
+- The original effect update rates (40ms/250ms) sent UART commands fast
+  enough to starve the appliance's replies to periodic status polls,
+  freezing Tank Removed/Water Empty/Mist Active at stale values for as long
+  as an effect ran -- so notifications never reacted to real changes on
+  their own. Slowed down (150ms for the breathing pulse, 400ms for the
+  error flash) to leave the bus enough room.
+- Turning **Night Light Notifications** on while the humidifier was already
+  running did nothing until some unrelated sensor changed state, because
+  of an ESPHome ordering quirk: a template switch's `turn_on_action` runs
+  *before* the switch publishes its own new state, so a script checking
+  that switch's state from inside its own `turn_on_action` would read the
+  stale (still-off) value. Fixed by splitting the logic into two scripts --
+  see [Night Light doubling as a status light](#night-light-doubling-as-a-status-light).
+- The Night Light entity in Home Assistant no longer flickers through every
+  in-between brightness/on-off value the effects produce -- only the
+  physical light does. See the same section above.
+
+The maintenance-reminder sensors (`Needs Cleaning`, `Replace Water`) and the
+WiFi diagnostic sensors have passed config validation and C++ code
+generation but have not yet been separately confirmed on real hardware
+beyond what's needed for the fixes above.
 
 The protocol documentation this is built on marks several fields as
 `candidate` / `UNKNOWN` / not fully confirmed (see

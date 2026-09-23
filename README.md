@@ -1,4 +1,10 @@
-# Levoit Classic 300S -- ESPHome replacement firmware
+# Levoit Classic 300S -- ESPHome replacement firmware / micrologiciel de remplacement ESPHome
+
+🇬🇧 **[Read in English](#english)**  |  🇫🇷 **[Lire en français](#français)**
+
+---
+
+## English
 
 Custom ESPHome external component that replaces the stock WiFi/ESP module
 firmware on a Levoit Classic 300S humidifier, talking directly to the
@@ -7,9 +13,7 @@ control in Home Assistant with no cloud/VeSync dependency.
 
 <img width="1254" height="1254" alt="image" src="https://github.com/user-attachments/assets/942bcc66-45e4-4f88-a31d-c65c1e05ad7c" />
 
-
-
-## Table of contents
+### Table of contents
 
 1. [Credit](#credit)
 2. [How it works](#how-it-works)
@@ -26,7 +30,7 @@ control in Home Assistant with no cloud/VeSync dependency.
 13. [Design notes worth knowing before you wire up automations](#design-notes-worth-knowing-before-you-wire-up-automations)
 14. [Status of this build](#status-of-this-build)
 
-## Credit
+### Credit
 
 The `A5` UART protocol itself was **not** reverse-engineered in this repo --
 it was recovered by **Maxim Pivovarov / MaxPi ("Taxom")** through live UART
@@ -40,7 +44,7 @@ not copied from the source repo).
 If you republish or build on this, keep crediting the original protocol
 research -- it's the hard part.
 
-## How it works
+### How it works
 
 The Classic 300S has two separate MCUs on two separate boards:
 
@@ -68,7 +72,7 @@ onto the appliance board itself, no wiring changes to the mist/sensor
 hardware, and no 3D-printed parts are needed -- just reprogramming the WiFi
 module's flash over its existing programming pins.
 
-## What you get
+### What you get
 
 - Sensors: current humidity, target humidity, temperature, night light
   level, output level
@@ -87,7 +91,7 @@ module's flash over its existing programming pins.
   (`on_power_button_hold_5s`, `on_power_button_hold_15s`) so you can script
   your own reboot / recovery behavior
 
-### Night Light doubling as a status light
+#### Night Light doubling as a status light
 
 Two independent switches control this, so you can enable either one, both,
 or neither -- there's no single master switch:
@@ -145,7 +149,7 @@ itself, both confirmed by testing on real hardware:
   appliance MCU, so treat any change as something to retest, not just
   something to eyeball.
 
-### Maintenance reminders
+#### Maintenance reminders
 
 Two independent binary sensors, both diagnostic-only (they don't change
 anything on their own -- wire up your own HA automation/notification if you
@@ -166,7 +170,7 @@ Both rely on the `time:` component (synced from Home Assistant over the
 API) and a couple of `globals:` counters -- see `common_entities.yaml` if
 you want to change the 72h threshold for either one.
 
-## Identify your hardware variant
+### Identify your hardware variant
 
 Levoit shipped this model with **two different WiFi modules** over time:
 
@@ -194,7 +198,7 @@ until you fix it.
 The header pads on the module are usually unpopulated (no pins soldered) --
 you'll need to solder your own wires or pins to them to connect anything.
 
-## What you'll need
+### What you'll need
 
 - A Philips #2 screwdriver
 - A T20 screwdriver
@@ -218,12 +222,11 @@ ground as the power supply. Soldering permanent wires instead of using
 pogo-pin test probes makes bootloader entry (see below) much less fiddly,
 since EN and IO0 don't need to be shared/reused with other pins mid-procedure.
 
-## Wiring
+### Wiring
 
 1. Remove the 7 Philips #2 screw (4 hidden under rubber pad) and T20 screw, remove the botttom cover:
 
 <img width="1446" height="1012" alt="image" src="https://github.com/user-attachments/assets/5d8eafbc-4652-44e1-bfd4-66283950d92f" />
-
 
 2. **Remove the 2 philips screw securing the the WiFi/Display module assembly bracket. Disconnect all cables fro the Wifi/Display module assembly. Remove the module from the appliance** so you can access its
    header pads directly.
@@ -231,7 +234,6 @@ since EN and IO0 don't need to be shared/reused with other pins mid-procedure.
 <img width="1335" height="1025" alt="image" src="https://github.com/user-attachments/assets/225527d6-6916-48c4-b71c-8f478ca88de9" />
 <img width="1876" height="865" alt="image" src="https://github.com/user-attachments/assets/df920f5d-4602-48f1-ab15-1a5b3ab0eef7" />
 
-   
 3. **Solder 6 wires** to the module's pads: `3V3`, `GND`, `EN`, `IO0`, `RX`,
    `TX`. `EN` and `IO0` are strapping pins used only to enter bootloader
    mode -- once you're done flashing you can leave them unconnected in
@@ -252,12 +254,11 @@ since EN and IO0 don't need to be shared/reused with other pins mid-procedure.
 <img width="954" height="702" alt="image" src="https://github.com/user-attachments/assets/ef56d672-f113-40ef-a77d-9d6663cfd570" />
 <img width="998" height="2160" alt="20260923_151726" src="https://github.com/user-attachments/assets/1753b62b-0d05-4323-9845-d35abcd01483" />
 
-
 With that done, you have independent, always-available access to `EN` and
 `IO0` for bootloader entry, without needing to borrow/share pins with
 anything else.
 
-### Entering bootloader mode
+#### Entering bootloader mode
 
 The ESP32(-C3) only enters its UART bootloader (needed for `esptool` to
 talk to it) if `IO0` is held low at the moment of reset. With `EN` and
@@ -278,7 +279,7 @@ To leave bootloader mode and boot your newly-flashed firmware normally,
 reset again with `IO0` **not** grounded: just pulse `EN` to `GND` and
 release it (or power-cycle the module).
 
-## Step 1 -- Back up the stock firmware
+### Step 1 -- Back up the stock firmware
 
 Always do this before flashing anything, even if you don't think you'll
 ever want to go back. Do a **full flash dump**, not just the app partition,
@@ -307,7 +308,7 @@ They should match exactly. If they don't, the stock firmware likely
 touched its own NVS data between reads -- redo both reads. Once you have a
 verified, matching pair, you have a safe way back to stock.
 
-## Step 2 -- Configure secrets
+### Step 2 -- Configure secrets
 
 1. `cp secrets.yaml.example secrets.yaml` (this file is gitignored -- never
    commit it or share it).
@@ -320,7 +321,7 @@ verified, matching pair, you have a safe way back to stock.
    - `ap_password` -- any password of at least 8 characters, for the
      fallback WiFi AP the device creates if it can't reach your network
 
-## Step 3 -- Flash the ESPHome firmware
+### Step 3 -- Flash the ESPHome firmware
 
 1. Pick the YAML file matching your hardware variant (see
    [Identify your hardware variant](#identify-your-hardware-variant)).
@@ -355,7 +356,7 @@ verified, matching pair, you have a safe way back to stock.
    (`esphome run classic300s_esp32c3solo.yaml`, no `--device` needed) --
    no more re-opening the appliance.
 
-## Step 4 -- Add it to Home Assistant
+### Step 4 -- Add it to Home Assistant
 
 Home Assistant should auto-discover the device via mDNS within a minute or
 two of it joining your network:
@@ -371,7 +372,7 @@ IP address (or `<name>.local`), port `6053`, and the same encryption key.
 
 All entities appear grouped under a single device once connected.
 
-## Step 5 -- Reassemble and test on mains power
+### Step 5 -- Reassemble and test on mains power
 
 Once you've confirmed the device connects to WiFi and shows up in Home
 Assistant, reinstall the WiFi module back into the appliance (A5 bus wires
@@ -382,7 +383,7 @@ should populate all the sensors and binary sensors with real values, and
 commands sent from Home Assistant should be reflected on the physical
 front panel.
 
-## Quick install via the Home Assistant ESPHome Dashboard
+### Quick install via the Home Assistant ESPHome Dashboard
 
 If you just want to add this device from the ESPHome Dashboard built into
 Home Assistant without cloning this whole repo, create a new device with a
@@ -461,7 +462,7 @@ packages:
     refresh: 0s
 ```
 
-## Design notes worth knowing before you wire up automations
+### Design notes worth knowing before you wire up automations
 
 - **Stop At Target vs Target Stop Active**: these are two different things.
   The `Stop At Target` switch is the behavior you command; `Target Stop
@@ -496,7 +497,7 @@ packages:
   your own Home Assistant automation on those binary sensors if you want a
   notification.
 
-## Status of this build
+### Status of this build
 
 Flashed and running on a real ESP32-C3-SOLO-1 unit. Core entities (sensors,
 binary sensors, switches, numbers, select) are confirmed working
@@ -551,3 +552,623 @@ The protocol documentation this is built on marks several fields as
 startup variants, the E2 error code, and whether the stored Stop-At-Target
 setting is exposed anywhere in the 20-byte status payload. Treat anything
 derived from those fields as best-effort.
+
+---
+
+## Français
+
+Composant externe ESPHome personnalisé qui remplace le micrologiciel
+d'origine du module WiFi/ESP d'un humidificateur Levoit Classic 300S, en
+communiquant directement avec le MCU de l'appareil via son protocole UART
+propriétaire `A5`. Vous donne un contrôle local dans Home Assistant, sans
+dépendance au cloud/VeSync.
+
+<img width="1254" height="1254" alt="image" src="https://github.com/user-attachments/assets/942bcc66-45e4-4f88-a31d-c65c1e05ad7c" />
+
+### Table des matières
+
+1. [Crédit](#crédit)
+2. [Comment ça fonctionne](#comment-ça-fonctionne)
+3. [Ce que vous obtenez](#ce-que-vous-obtenez)
+4. [Identifier votre variante matérielle](#identifier-votre-variante-matérielle)
+5. [Ce dont vous aurez besoin](#ce-dont-vous-aurez-besoin)
+6. [Câblage](#câblage)
+7. [Étape 1 -- Sauvegarder le micrologiciel d'origine](#étape-1----sauvegarder-le-micrologiciel-dorigine)
+8. [Étape 2 -- Configurer les secrets](#étape-2----configurer-les-secrets)
+9. [Étape 3 -- Flasher le micrologiciel ESPHome](#étape-3----flasher-le-micrologiciel-esphome)
+10. [Étape 4 -- L'ajouter à Home Assistant](#étape-4----lajouter-à-home-assistant)
+11. [Étape 5 -- Réassembler et tester sur secteur](#étape-5----réassembler-et-tester-sur-secteur)
+12. [Installation rapide via le tableau de bord ESPHome de Home Assistant](#installation-rapide-via-le-tableau-de-bord-esphome-de-home-assistant)
+13. [Notes de conception à connaître avant de créer des automatisations](#notes-de-conception-à-connaître-avant-de-créer-des-automatisations)
+14. [État de cette version](#état-de-cette-version)
+
+### Crédit
+
+Le protocole UART `A5` lui-même n'a **pas** été rétro-ingénié dans ce dépôt
+-- il a été découvert par **Maxim Pivovarov / MaxPi (« Taxom »)** par
+écoute UART en direct et par des tests actifs avec un contrôleur de
+remplacement, puis publié sur
+[Taxom/levoit-classic-300s-uart-protocol](https://github.com/Taxom/levoit-classic-300s-uart-protocol)
+sous licence CC BY-NC-SA 4.0. Ce dépôt documente le protocole et donne des
+notes matérielles, mais ne contient pas de composant ESPHome prêt à
+flasher -- ce dépôt-ci est le composant ESPHome construit à partir de ce
+protocole documenté (code original, non copié du dépôt source).
+
+Si vous republiez ce projet ou vous en inspirez, continuez de créditer la
+recherche originale sur le protocole -- c'est la partie difficile.
+
+### Comment ça fonctionne
+
+Le Classic 300S possède deux MCU distincts sur deux cartes séparées :
+
+- **La carte de l'appareil**, qui lit les capteurs d'humidité/de réservoir,
+  pilote la sortie de brume et les LED/boutons du panneau avant, et exécute
+  la logique réelle de l'humidificateur. Cette carte n'est pas touchée par
+  ce projet.
+- **Le module WiFi** (un ESP32-SOLO-1C ou un ESP32-C3-SOLO-1, selon la date
+  de fabrication de votre unité), une petite carte fille qui se branche sur
+  la carte de l'appareil et exécute normalement le micrologiciel d'origine
+  de Levoit, communiquant avec la carte de l'appareil via une simple
+  liaison UART (le protocole `A5`) et avec le cloud de VeSync via WiFi.
+
+Ce projet remplace **uniquement le micrologiciel du module WiFi**. Le
+nouveau micrologiciel parle le même protocole UART `A5` que la carte de
+l'appareil attend déjà, donc du point de vue de la carte de l'appareil,
+rien n'a changé -- on continue de lui demander d'activer la brume, de
+rapporter l'humidité, etc. Ce qui change, c'est que le module WiFi expose
+maintenant tout cela directement à Home Assistant via le réseau local
+(l'API native d'ESPHome), sans aucune dépendance à un compte VeSync, à
+l'application, ou à Internet. Les contrôles physiques du panneau avant
+(boutons, écran) continuent de fonctionner exactement comme avant, puisqu'ils
+sont entièrement gérés par la carte de l'appareil -- le module WiFi ne fait
+qu'écouter et relayer l'état.
+
+Comme il s'agit d'un simple remplacement de micrologiciel sur le module
+existant, aucune soudure sur la carte de l'appareil elle-même, aucun
+changement de câblage sur le matériel de brume/capteurs, et aucune pièce
+imprimée en 3D n'est nécessaire -- il suffit de reprogrammer la mémoire
+flash du module WiFi via ses broches de programmation existantes.
+
+### Ce que vous obtenez
+
+- Sensors (capteurs) : humidité actuelle, humidité cible, température,
+  niveau de veilleuse, niveau de sortie
+- Binary sensors (capteurs binaires) : power (alimentation), tank removed
+  (bac retiré), water empty (eau vide), mist active (brume active), display
+  (écran), target-stop-active (arrêt-cible actif), needs cleaning
+  (nettoyage requis), replace water (remplacer l'eau)
+- Switches (interrupteurs) : power, display, stop-at-target, notifications
+  de la Night Light
+- Numbers (nombres) : niveau de brume manuel (1-9), humidité cible en mode
+  auto, humidité cible en mode sommeil
+- Select (sélecteur) : mode (auto / manual / sleep)
+- Light (lumière) : night light, en tant que vraie entité lumière gradable
+  (on/off + 0-100 %), voir ci-dessous
+- Sensors diagnostiques : signal WiFi, uptime, adresse IP, SSID connecté
+- Text sensors diagnostiques : mode (brut), code d'erreur, dernière trame
+  de statut brute
+- Un bouton restart et un bouton « reset cleaning reminder »
+- Des déclencheurs d'automatisation pour les appuis longs sur le bouton
+  d'alimentation physique (`on_power_button_hold_5s`,
+  `on_power_button_hold_15s`) pour que vous puissiez scripter votre propre
+  comportement de redémarrage/récupération
+
+#### Night Light comme indicateur de statut
+
+Deux interrupteurs indépendants contrôlent ce comportement, vous pouvez
+donc activer l'un, l'autre, les deux, ou aucun -- il n'y a pas
+d'interrupteur maître unique :
+
+- **Night Light Problem Notification** -- quand activé, la Night Light
+  **flashe** dès que Water Empty ou Tank Removed est vrai **et que
+  l'appareil est allumé** (priorité la plus haute -- quelque chose demande
+  votre attention). La vérification de Power est volontaire : quand Power
+  est éteint, retirer le bac pour le remplir ou le nettoyer est une
+  opération courante, pas un problème -- elle est donc exclue exprès,
+  sinon la Night Light flasherait tout le temps que le bac est sorti pour
+  un remplissage.
+- **Night Light Operating Notification** -- quand activé, la Night Light
+  fait un **pulse de respiration lent (0->100 %->0 %)** tant que Mist
+  Active est vrai et qu'il n'y a pas de problème.
+
+Si un problème est actif et que Problem Notification est activé, cela
+l'emporte toujours sur le pulse de respiration, peu importe l'état de
+Operating Notification. Avec les deux interrupteurs désactivés, la Night
+Light est une simple lumière contrôlée manuellement, non touchée par tout
+ceci. Avec au moins un interrupteur activé, la Night Light est reprise par
+celui des deux comportements qui s'applique actuellement, et forcée à off
+quand aucun des deux ne s'applique (donc le contrôle manuel, tant qu'au
+moins un de ces interrupteurs est activé, se fait écraser).
+
+La logique se trouve dans `common_entities.yaml`, dans un seul script,
+`apply_night_light_state` -- ajustez-y la vitesse du flash, la vitesse de
+la respiration, ou l'ordre de priorité si vous voulez un comportement
+différent. Pendant qu'un effet tourne, l'*entité* Night Light dans Home
+Assistant ne clignote pas à travers toutes les valeurs intermédiaires de
+luminosité/on-off que chaque tick de l'effet produit -- elle ne se met à
+jour que lorsqu'un effet démarre/s'arrête ou que vous contrôlez la lumière
+manuellement, donc son historique d'état reste pertinent. La lumière
+physique continue, elle, de vraiment pulser/flasher ; seul l'état visible
+côté HA reste stable.
+
+Deux choses à savoir sur la façon dont ceci interagit avec l'appareil
+lui-même, toutes deux confirmées par des tests sur du matériel réel :
+
+- **L'écran du panneau avant se rallume momentanément à la réception de
+  *n'importe quelle* commande envoyée à l'appareil via le bus A5** -- c'est
+  un comportement du MCU de l'appareil lui-même, pas quelque chose que ce
+  micrologiciel fait exprès. Comme les effets de respiration/flash
+  ci-dessus envoient continuellement de vraies commandes pour piloter
+  physiquement la LED de la Night Light, l'écran restera allumé tant qu'un
+  effet de notification est actif, même si vous avez éteint **Display**.
+  Il n'y a aucun moyen de supprimer ce comportement du côté du module WiFi
+  -- c'est intégré au micrologiciel de la carte principale de l'appareil,
+  que ce projet ne touche pas.
+- Les effets de respiration/flash envoient une vraie commande UART à
+  chaque tick de mise à jour (il n'y a pas de LED GPIO locale pour la
+  Night Light -- c'est une lumière distante sur le MCU de l'appareil),
+  donc leur intervalle de mise à jour fait aussi office de débit de
+  commandes sur ce même bus. Les envoyer trop vite (la conception
+  d'origine utilisait des ticks de 40 ms/250 ms) peut affamer les réponses
+  du MCU aux requêtes de statut périodiques, ce qui gèle alors Tank
+  Removed/Water Empty/Mist Active à des valeurs périmées tant qu'un effet
+  tourne -- les notifications cessent alors de réagir aux vrais
+  changements jusqu'à ce que quelque chose force une nouvelle vérification
+  (comme basculer l'interrupteur de notifications lui-même). Si vous
+  ajustez la vitesse des effets dans `common_entities.yaml`, gardez ceci en
+  tête ; il n'existe pas de débit « sûr » précisément documenté pour le
+  MCU de l'appareil, donc traitez tout changement comme quelque chose à
+  retester, pas juste à évaluer à l'œil.
+
+#### Rappels d'entretien
+
+Deux binary_sensors indépendants, tous deux purement diagnostiques (ils ne
+changent rien d'eux-mêmes -- ajoutez votre propre automatisation/
+notification HA si vous voulez être alerté) :
+
+- **Needs Cleaning** s'active après environ **3 jours (72h) de temps de
+  brumisation cumulé** depuis la dernière remise à zéro -- une
+  approximation grossière de « le réservoir/la mèche ont assez servi pour
+  valoir la peine d'être nettoyés ». Appuyez sur le bouton **Reset Cleaning
+  Reminder** après le nettoyage pour remettre le compteur à zéro. Ceci suit
+  le temps de fonctionnement *réel*, pas le temps calendaire, donc une
+  unité peu utilisée prendra bien plus de 3 jours calendaires avant de se
+  déclencher.
+- **Replace Water** s'active quand l'appareil **n'a pas du tout brumisé
+  depuis environ 3 jours calendaires (72h)** -- de l'eau qui stagne dans le
+  réservoir depuis aussi longtemps vaut la peine d'être remplacée avant la
+  prochaine utilisation. Il se réinitialise automatiquement dès que
+  l'appareil est réutilisé.
+
+Les deux s'appuient sur le composant `time:` (synchronisé depuis Home
+Assistant via l'API) et quelques compteurs `globals:` -- voir
+`common_entities.yaml` si vous voulez changer le seuil de 72h pour l'un ou
+l'autre.
+
+### Identifier votre variante matérielle
+
+Levoit a livré ce modèle avec **deux modules WiFi différents** au fil du
+temps :
+
+| | ESP32-SOLO-1C (original) | ESP32-C3-SOLO-1 (plus récent) |
+|---|---|---|
+| Cœur | Xtensa, mono-cœur | RISC-V, mono-cœur |
+| YAML à utiliser | `classic300s_esp32solo.yaml` | `classic300s_esp32c3solo.yaml` |
+| Broches du bus A5 (vers la carte de l'appareil) | GPIO16 (RX) / GPIO17 (TX) | GPIO18 (RX) / GPIO19 (TX) |
+| Broches de flashage/programmation | GPIO3 (RX) / GPIO1 (TX), boot=GPIO0 | GPIO21 (RX) / GPIO20 (TX), boot=GPIO9 |
+
+Vous pouvez généralement le déterminer à partir des inscriptions
+sérigraphiées sur le module, mais la méthode sûre est de connecter
+uniquement l'alimentation + les broches UART de programmation (voir
+[Câblage](#câblage)) et d'exécuter :
+
+```
+esptool.py --port COMx flash_id
+```
+
+(`COMx` sous Windows, `/dev/ttyUSBx` sous Linux/Mac). Cela affichera le
+type de puce (`ESP32-D0WD`/`ESP32-S0WD` contre `ESP32-C3`) avant même que
+vous ne vous engagiez dans un mapping de broches. Flasher le mauvais
+mapping de broches pour le bus A5 n'endommagera rien -- le micrologiciel
+ne pourra simplement pas parler à la carte de l'appareil tant que vous ne
+l'aurez pas corrigé.
+
+Les pastilles de connexion du module ne sont généralement pas peuplées
+(aucune broche soudée) -- vous devrez y souder vos propres fils ou broches
+pour connecter quoi que ce soit.
+
+### Ce dont vous aurez besoin
+
+- Un tournevis Philips #2
+- Un tournevis T20
+- Un adaptateur USB-UART TTL (niveau logique 3,3 V -- **pas** 5 V) branché
+  à votre ordinateur
+- Une alimentation externe 3,3 V pour le module pendant le flashage (une
+  alimentation de laboratoire, ou un second adaptateur USB-UART utilisé
+  uniquement pour ses broches 3V3/GND, fait très bien l'affaire -- vous
+  n'avez **pas** besoin d'alimenter l'appareil sur secteur pour tout ceci)
+- Un moyen de faire des connexions temporaires (sondes à pointe avec cadre
+  BDM) ou soudées à 6 pastilles du module :
+  **3V3, GND, EN, IO0 (strap de boot), RX, TX**
+- [`esptool`](https://github.com/espressif/esptool) et
+  [ESPHome](https://esphome.io/) installés sur votre ordinateur (`pip
+  install esptool esphome`)
+
+Ce guide documente le montage réellement utilisé pour développer et tester
+ce projet : **6 fils soudés directement sur les pastilles non peuplées du
+module** (GND, 3V3, EN, RX, TX, IO0), une alimentation externe pour
+3V3/GND, et un adaptateur USB-UART TTL pour RX/TX avec sa masse reliée à la
+même masse que l'alimentation. Souder des fils permanents plutôt que
+d'utiliser des sondes de test à ressort rend l'entrée en mode bootloader
+(voir plus bas) beaucoup moins délicate, puisque EN et IO0 n'ont pas besoin
+d'être partagés/réutilisés avec d'autres broches en cours de procédure.
+
+### Câblage
+
+1. Retirez les 7 vis Philips #2 (4 cachées sous le pad en caoutchouc) et
+   la vis T20, retirez le couvercle du bas :
+
+<img width="1446" height="1012" alt="image" src="https://github.com/user-attachments/assets/5d8eafbc-4652-44e1-bfd4-66283950d92f" />
+
+2. **Retirez les 2 vis Philips fixant le support de l'ensemble module
+   WiFi/écran. Débranchez tous les câbles de l'ensemble module WiFi/écran.
+   Retirez le module de l'appareil** pour accéder directement à ses
+   pastilles de connexion.
+
+<img width="1335" height="1025" alt="image" src="https://github.com/user-attachments/assets/225527d6-6916-48c4-b71c-8f478ca88de9" />
+<img width="1876" height="865" alt="image" src="https://github.com/user-attachments/assets/df920f5d-4602-48f1-ab15-1a5b3ab0eef7" />
+
+3. **Soudez 6 fils** aux pastilles du module : `3V3`, `GND`, `EN`, `IO0`,
+   `RX`, `TX`. `EN` et `IO0` sont des broches de configuration (strapping
+   pins) utilisées uniquement pour entrer en mode bootloader -- une fois le
+   flashage terminé, vous pouvez les laisser non connectées en usage
+   normal.
+4. **Alimentation** : connectez les sorties `3V3` et `GND` de votre
+   alimentation externe 3,3 V aux fils `3V3`/`GND` du module. N'alimentez
+   **pas** le module depuis la broche 3V3/5V propre de l'adaptateur
+   USB-UART -- utilisez une véritable alimentation externe.
+5. **Données** : connectez le `RX` de l'adaptateur USB-UART au `TX` du
+   module, et le `TX` de l'adaptateur au `RX` du module (croisé, comme
+   d'habitude pour l'UART).
+6. **Masse** : connectez le `GND` de l'adaptateur USB-UART à la même masse
+   que l'alimentation/le module. C'est facile à oublier puisque l'adaptateur
+   n'alimente rien, mais sans référence de masse commune, la liaison série
+   sera peu fiable ou échouera carrément (erreurs « Invalid head of
+   packet », « serial noise or corruption » d'esptool).
+7. Vérifiez bien que l'alimentation fournit réellement **3,3 V, pas 5 V**,
+   avant de connecter quoi que ce soit -- 5 V sur ces broches peut
+   endommager le module.
+
+<img width="954" height="702" alt="image" src="https://github.com/user-attachments/assets/ef56d672-f113-40ef-a77d-9d6663cfd570" />
+<img width="998" height="2160" alt="20260923_151726" src="https://github.com/user-attachments/assets/1753b62b-0d05-4323-9845-d35abcd01483" />
+
+Une fois cela fait, vous avez un accès indépendant et toujours disponible
+à `EN` et `IO0` pour l'entrée en mode bootloader, sans avoir besoin
+d'emprunter/partager des broches avec autre chose.
+
+#### Entrer en mode bootloader
+
+L'ESP32(-C3) n'entre dans son bootloader UART (nécessaire pour qu'`esptool`
+puisse lui parler) que si `IO0` est maintenu bas au moment du reset. Avec
+`EN` et `IO0` tous deux câblés en sortie, la séquence est :
+
+1. Le module déjà alimenté (3V3/GND connectés) et `IO0` **pas encore**
+   relié à la masse, touchez `IO0` à `GND` et maintenez-le là.
+2. Pendant que `IO0` est toujours maintenu à `GND`, touchez brièvement `EN`
+   à `GND` aussi (une fraction de seconde) pour réinitialiser la puce, puis
+   relâchez `EN`.
+3. Maintenez `IO0` à `GND` encore environ une seconde après avoir relâché
+   `EN`, puis relâchez `IO0`.
+
+La puce est maintenant en mode bootloader et y reste indéfiniment (pas de
+timeout) jusqu'au prochain reset ou à la prochaine coupure d'alimentation
+-- vous pouvez exécuter plusieurs commandes `esptool` à la suite sans
+répéter cette séquence.
+
+Pour quitter le mode bootloader et démarrer normalement votre
+micrologiciel fraîchement flashé, réinitialisez à nouveau avec `IO0`
+**non** relié à la masse : impulsez simplement `EN` vers `GND` et relâchez
+(ou coupez/rétablissez l'alimentation du module).
+
+### Étape 1 -- Sauvegarder le micrologiciel d'origine
+
+Faites toujours ceci avant de flasher quoi que ce soit, même si vous
+pensez ne jamais vouloir revenir en arrière. Faites un **dump flash
+complet**, pas seulement la partition app, et gardez le fichier résultant
+**privé** -- il contient vos identifiants WiFi et les données d'appairage
+VeSync en clair :
+
+```
+esptool.py --port COMx flash_id
+esptool.py --chip esp32 --port COMx --baud 460800 --before no-reset --after no-reset read-flash 0x000000 0x400000 backup1.bin
+esptool.py --chip esp32 --port COMx --baud 460800 --before no-reset --after no-reset read-flash 0x000000 0x400000 backup2.bin
+```
+
+(utilisez `--chip esp32c3` pour la variante ESP32-C3-SOLO-1 ; entrez en
+mode bootloader une fois avant la première commande -- `--before no-reset
+--after no-reset` maintient la puce en bootloader entre les commandes pour
+ne pas avoir à répéter la séquence EN/IO0 pour la seconde lecture).
+
+Lisez-la **deux fois** dans deux fichiers séparés et comparez leurs
+empreintes :
+
+```
+certutil -hashfile backup1.bin SHA256      (Windows)
+sha256sum backup1.bin backup2.bin          (Linux/Mac)
+```
+
+Elles doivent correspondre exactement. Si ce n'est pas le cas, le
+micrologiciel d'origine a probablement modifié ses propres données NVS
+entre les deux lectures -- refaites les deux lectures. Une fois que vous
+avez une paire vérifiée et identique, vous disposez d'un moyen sûr de
+revenir à l'origine.
+
+### Étape 2 -- Configurer les secrets
+
+1. `cp secrets.yaml.example secrets.yaml` (ce fichier est dans le
+   .gitignore -- ne le committez ni ne le partagez jamais).
+2. Remplissez les 5 valeurs :
+   - `wifi_ssid` / `wifi_password` -- votre réseau WiFi
+   - `api_encryption_key` -- une clé base64 aléatoire de 32 octets, par
+     exemple générée avec `python3 -c "import os, base64;
+     print(base64.b64encode(os.urandom(32)).decode())"`
+   - `ota_password` -- un mot de passe de votre choix, protège les futures
+     mises à jour OTA
+   - `ap_password` -- un mot de passe d'au moins 8 caractères, pour le
+     point d'accès WiFi de secours que l'appareil crée s'il ne peut pas
+     joindre votre réseau
+
+### Étape 3 -- Flasher le micrologiciel ESPHome
+
+1. Choisissez le fichier YAML correspondant à votre variante matérielle
+   (voir [Identifier votre variante matérielle](#identifier-votre-variante-matérielle)).
+2. Entrez en mode bootloader (voir [Câblage](#câblage) ci-dessus).
+3. Flashez via la même connexion série utilisée pour la sauvegarde -- ce
+   premier flashage doit se faire par fil, puisque le micrologiciel
+   d'origine n'est pas ESPHome et ne peut pas faire de bascule OTA :
+
+   ```
+   esphome run classic300s_esp32c3solo.yaml --device COMx
+   ```
+
+   (ou `classic300s_esp32solo.yaml` pour la variante plus ancienne ;
+   utilisez `esphome upload` au lieu de `run` si vous ne voulez pas la
+   console de logs -- notez que le logging UART est désactivé exprès dans
+   cette config, puisque UART0 est partagé avec les broches de flashage
+   sur le C3, donc vous ne verrez pas de logs en direct via le port série
+   de toute façon).
+
+   La toute première exécution télécharge et met aussi en cache la chaîne
+   de compilation ESP-IDF, ce qui peut prendre quelques minutes selon
+   votre connexion -- les compilations suivantes sont bien plus rapides.
+4. Une fois le flashage terminé, le « reset » propre d'esptool à la fin ne
+   fait rien d'utile ici (`EN`/`IO0` ne sont pas câblés aux lignes RTS/DTR
+   de l'adaptateur), donc la puce est probablement toujours en bootloader
+   plutôt qu'en train d'exécuter votre nouveau micrologiciel. **Démarrez-la
+   normalement** : avec `IO0` *non* relié à la masse, impulsez `EN` vers
+   `GND` et relâchez (ou coupez/rétablissez l'alimentation du module).
+5. Laissez-lui 30 à 60 secondes pour se connecter au WiFi, puis trouvez
+   son adresse IP -- consultez la liste des clients de votre routeur/point
+   d'accès pour un appareil nommé d'après ce que vous avez défini sous
+   `esphome: name:` (`levoit-classic300s` par défaut), ou essayez de
+   joindre directement `levoit-classic300s.local`.
+6. Après ce premier flashage filaire, toutes les mises à jour futures
+   peuvent se faire par WiFi (`esphome run classic300s_esp32c3solo.yaml`,
+   sans `--device`) -- plus besoin de rouvrir l'appareil.
+
+### Étape 4 -- L'ajouter à Home Assistant
+
+Home Assistant devrait découvrir automatiquement l'appareil via mDNS dans
+la minute ou les deux minutes suivant sa connexion à votre réseau :
+
+1. **Paramètres -> Appareils et services** -- cherchez une carte
+   « Découvert » pour le nom de votre appareil.
+2. Cliquez sur **Configurer**, collez la `api_encryption_key` de votre
+   `secrets.yaml` quand demandé.
+
+Si rien n'est découvert automatiquement, ajoutez-le manuellement à la
+place : **Paramètres -> Appareils et services -> Ajouter une intégration
+-> ESPHome**, entrez l'adresse IP (ou `<name>.local`), le port `6053`, et
+la même clé de chiffrement.
+
+Toutes les entités apparaissent regroupées sous un seul appareil une fois
+connecté.
+
+### Étape 5 -- Réassembler et tester sur secteur
+
+Une fois que vous avez confirmé que l'appareil se connecte au WiFi et
+apparaît dans Home Assistant, réinstallez le module WiFi dans l'appareil
+(fils du bus A5 reconnectés à la carte de l'appareil), réassemblez le
+boîtier, et alimentez l'appareil sur secteur normalement. En quelques
+secondes après la mise sous tension de la carte de l'appareil, l'échange
+requête-statut/réponse-statut du micrologiciel devrait peupler tous les
+sensors et binary_sensors avec de vraies valeurs, et les commandes
+envoyées depuis Home Assistant devraient se refléter sur le panneau avant
+physique.
+
+### Installation rapide via le tableau de bord ESPHome de Home Assistant
+
+Si vous voulez simplement ajouter cet appareil depuis le tableau de bord
+ESPHome intégré à Home Assistant sans cloner tout ce dépôt, créez un
+nouvel appareil avec un YAML minimal qui tire le composant et les entités
+partagées directement depuis GitHub :
+
+```yaml
+esphome:
+  name: levoit-classic300s
+  friendly_name: Levoit Classic 300S
+
+esp32:
+  board: esp32-c3-devkitm-1     # ou esp32dev pour la variante ESP32-SOLO-1C
+  variant: esp32c3              # supprimez cette ligne pour la variante ESP32-SOLO-1C
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+
+logger:
+  baud_rate: 0   # UART0 est partagé avec le bus A5 / les broches de flashage sur le C3
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Levoit Classic 300S Fallback"
+    password: !secret ap_password
+
+captive_portal:
+
+external_components:
+  - source: github://alray31/levoit-classic300s-esphome@main
+    components: [lv_classic300s_humidifier]
+
+uart:
+  id: a5_uart_bus
+  rx_pin: GPIO18   # GPIO16 pour la variante ESP32-SOLO-1C
+  tx_pin: GPIO19   # GPIO17 pour la variante ESP32-SOLO-1C
+  baud_rate: 9600
+
+packages:
+  common: github://alray31/levoit-classic300s-esphome/common_entities.yaml@main
+```
+
+Il vous faudra quand même un `secrets.yaml` à côté de ce fichier avec les 5
+mêmes clés que `secrets.yaml.example`. ESPHome télécharge et met en cache
+`components/` et `common_entities.yaml` depuis GitHub à la compilation,
+donc rien d'autre n'a besoin d'être local -- et les futurs correctifs/
+fonctionnalités poussés sur ce dépôt apparaissent automatiquement à votre
+prochaine compilation.
+
+`external_components:` et `packages:` mettent tous deux en cache le clone
+GitHub pendant **24 heures par défaut** (`refresh: 1d`). Si vous itérez
+activement sur ce dépôt et voulez que votre prochaine compilation
+récupère immédiatement un changement que vous venez de pousser, ajoutez
+`refresh: 0s` à l'entrée `external_components:`, et développez `packages:`
+vers sa forme longue pour faire de même :
+
+```yaml
+external_components:
+  - source: github://alray31/levoit-classic300s-esphome@main
+    components: [lv_classic300s_humidifier]
+    refresh: 0s
+
+packages:
+  common:
+    url: https://github.com/alray31/levoit-classic300s-esphome
+    files: [common_entities.yaml]
+    ref: main
+    refresh: 0s
+```
+
+### Notes de conception à connaître avant de créer des automatisations
+
+- **Stop At Target contre Target Stop Active** : ce sont deux choses
+  différentes. L'interrupteur `Stop At Target` est le comportement que
+  vous commandez ; `Target Stop Active` (binary_sensor) est le rapport en
+  direct du MCU indiquant si la sortie est actuellement inhibée par la
+  condition de cible. Ne les confondez pas dans votre tableau de bord.
+- **Mode + cible/niveau sont la même commande.** Changer le nombre `Auto
+  Target Humidity` ou `Sleep Target Humidity`, ou le nombre `Manual Mist
+  Level`, bascule aussi l'appareil dans ce mode (comme le comportement
+  d'origine, qui envoie toujours un préambule de synchronisation avant une
+  commande établissant un mode). Si vous voulez simplement *ajuster* la
+  cible pendant que vous êtes déjà dans ce mode, ce n'est pas un problème
+  -- c'est idempotent -- sachez juste que ce n'est pas un contrôle
+  « changer la valeur sans changer le mode ».
+- **Les appuis physiques sur les boutons du panneau avant ne sont pas des
+  commandes que nous envoyons** -- le MCU les rapporte via des trames de
+  statut, et ce composant écoute en continu et se met à jour en
+  conséquence. Si vous voyez un changement d'état sans ligne de log
+  ESPHome pour une commande, c'est le panneau physique qui est utilisé.
+- **L'écran du panneau avant se rallume brièvement à la réception de
+  n'importe quelle commande envoyée à l'appareil**, peu importe de quelle
+  entité vient cette commande -- c'est un comportement propre au MCU de
+  l'appareil (voir
+  [Night Light comme indicateur de statut](#night-light-comme-indicateur-de-statut)),
+  pas quelque chose que ce micrologiciel contrôle. Si Display est éteint
+  et que quelque chose d'autre que vous contrôlez (les interrupteurs de
+  notification de la Night Light en particulier, puisqu'un effet actif
+  envoie des commandes en continu) envoie des commandes, attendez-vous à
+  ce que l'écran reste allumé tant que cela continue.
+- La plage d'humidité cible sur les entités `number` est fixée à une
+  valeur prudente de 30-80 % (voir
+  `components/lv_classic300s_humidifier/number.py`) puisque les bornes
+  exactes imposées par le MCU ne sont pas documentées ; élargissez-la si
+  votre unité en accepte davantage.
+- Les rappels d'entretien (`Needs Cleaning`, `Replace Water`) sont
+  purement diagnostiques -- rien dans ce micrologiciel n'agit dessus
+  automatiquement. Ajoutez votre propre automatisation Home Assistant sur
+  ces binary_sensors si vous voulez une notification.
+
+### État de cette version
+
+Flashé et fonctionnel sur une unité ESP32-C3-SOLO-1 réelle. Les entités
+principales (sensors, binary_sensors, switches, numbers, select) sont
+confirmées fonctionnelles de bout en bout, y compris le réassemblage sur
+l'appareil et la communication sur le vrai bus A5.
+
+L'entité `light` Night Light et ses effets de notification (respiration/
+flash) sont maintenant, elles aussi, flash-testées et fonctionnelles,
+après plusieurs rounds de correctifs guidés par des tests sur du matériel
+réel :
+
+- Les débits de mise à jour d'origine des effets (40 ms/250 ms) envoyaient
+  des commandes UART assez vite pour affamer les réponses de l'appareil
+  aux polls de statut périodiques, gelant Tank Removed/Water Empty/Mist
+  Active à des valeurs périmées tant qu'un effet tournait -- les
+  notifications ne réagissaient donc jamais aux vrais changements
+  d'elles-mêmes. Ralenti (150 ms pour le pulse de respiration, 400 ms pour
+  le flash d'erreur) pour laisser assez de marge au bus.
+- Activer l'interrupteur de notification pendant que l'humidificateur
+  tournait déjà ne faisait rien tant qu'un autre capteur ne changeait pas
+  d'état, à cause d'une particularité d'ordonnancement d'ESPHome : le
+  `turn_on_action` d'un interrupteur template s'exécute *avant* que
+  l'interrupteur ne publie son propre nouvel état, donc un script
+  vérifiant l'état de cet interrupteur depuis son propre `turn_on_action`
+  lisait la valeur périmée (encore éteinte). Corrigé en faisant refléter à
+  chaque interrupteur son propre état dans un booléen `globals:` (de façon
+  synchrone, sans souci de timing de publication) plutôt que le script ne
+  lise `switch.is_on:` -- voir
+  [Night Light comme indicateur de statut](#night-light-comme-indicateur-de-statut).
+  Cela a aussi permis de scinder facilement ce qui était à l'origine un
+  seul interrupteur « Night Light Notifications » en les deux
+  interrupteurs indépendants décrits là-bas, puisque chacun ne fait plus
+  que basculer son propre booléen.
+- L'entité Night Light dans Home Assistant ne clignote plus à travers
+  chaque valeur intermédiaire de luminosité/on-off que les effets
+  produisent -- seule la lumière physique le fait. Voir la même section
+  ci-dessus.
+- **`Water Empty` (et potentiellement d'autres capteurs) pouvait rester
+  bloqué à « Unknown » dans HA indéfiniment.** Chaque champ décodé d'une
+  trame de statut n'appelait `publish_state()` que s'il différait de la
+  dernière valeur connue, pour éviter de republier à chaque poll de 15s --
+  mais cette comparaison partait d'une valeur par défaut au compile-time
+  (`false`/`0`), donc un champ dont la vraie première lecture correspondait
+  à ce défaut (Water Empty vaut normalement `false`, c.-à-d. eau présente
+  -- le cas courant) ne recevait jamais de première publication, et
+  restait à « Unknown » indéfiniment tant qu'il n'avait pas changé au
+  moins une fois. Corrigé dans `lv_classic300s_humidifier.cpp`
+  (`handle_status_payload_`) en forçant une publication par champ dès la
+  toute première trame de statut correctement décodée, peu importe sa
+  valeur.
+
+Les sensors de rappels d'entretien (`Needs Cleaning`, `Replace Water`) et
+les sensors diagnostiques WiFi ont passé la validation de config et la
+génération de code C++, mais n'ont pas encore été confirmés séparément sur
+du matériel réel au-delà de ce qui était nécessaire pour les correctifs
+ci-dessus.
+
+La documentation du protocole sur laquelle ce projet est construit marque
+plusieurs champs comme `candidate` / `UNKNOWN` / non entièrement confirmés
+(voir `docs/A5_UART_protocol.md`) -- notamment le sens exact de certaines
+variantes de démarrage `01 29 A1`, le code d'erreur E2, et si le réglage
+Stop-At-Target stocké est exposé quelque part dans la charge utile de
+statut de 20 octets. Traitez tout ce qui dérive de ces champs comme
+approximatif.

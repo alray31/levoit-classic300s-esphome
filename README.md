@@ -528,6 +528,17 @@ rounds of fixes driven by real-hardware testing:
 - The Night Light entity in Home Assistant no longer flickers through every
   in-between brightness/on-off value the effects produce -- only the
   physical light does. See the same section above.
+- **`Water Empty` (and potentially other sensors) could stay stuck at
+  "Unknown" in HA forever.** Every field decoded from a status frame only
+  called `publish_state()` when it differed from the last known value, to
+  avoid re-publishing on every 15s poll -- but that comparison started
+  against a compile-time default (`false`/`0`), so a field whose actual
+  first real reading matched that default (Water Empty is normally
+  `false`, i.e. water present -- the common case) never got a first
+  publish, and sat at "Unknown" indefinitely unless it happened to change
+  at least once. Fixed in `lv_classic300s_humidifier.cpp`
+  (`handle_status_payload_`) by forcing one publish per field on the very
+  first successfully parsed status frame regardless of its value.
 
 The maintenance-reminder sensors (`Needs Cleaning`, `Replace Water`) and the
 WiFi diagnostic sensors have passed config validation and C++ code

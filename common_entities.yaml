@@ -23,10 +23,22 @@ lv_classic300s_humidifier:
     name: "Power State"
   tank_removed:
     name: "Tank Removed"
+    id: tank_removed
+    on_state:
+      then:
+        - script.execute: update_night_light_notification
   water_empty:
     name: "Water Empty"
+    id: water_empty
+    on_state:
+      then:
+        - script.execute: update_night_light_notification
   mist_active:
     name: "Mist Active"
+    id: mist_active
+    on_state:
+      then:
+        - script.execute: update_night_light_notification
   display:
     name: "Display State"
   target_stop_active:
@@ -60,6 +72,22 @@ switch:
     stop_at_target:
       name: "Stop At Target"
 
+  # Master enable/disable for the Night Light notification behavior below.
+  # OFF: Night Light is just a plain manual light, untouched by automations.
+  # ON: Night Light doubles as a status indicator (see script below) and
+  # manual control while notifications are active gets overridden by them.
+  - platform: template
+    id: night_light_notifications
+    name: "Night Light Notifications"
+    icon: "mdi:bell-ring-outline"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    entity_category: config
+    turn_on_action:
+      - script.execute: update_night_light_notification
+    turn_off_action:
+      - light.turn_off: night_light
+
 number:
   - platform: lv_classic300s_humidifier
     lv_classic300s_humidifier_id: humidifier
@@ -69,8 +97,6 @@ number:
       name: "Auto Target Humidity"
     sleep_target_humidity:
       name: "Sleep Target Humidity"
-    night_light:
-      name: "Night Light"
 
 select:
   - platform: lv_classic300s_humidifier
@@ -78,7 +104,166 @@ select:
     mode:
       name: "Mode"
 
+light:
+  # Night Light as a real dimmable light entity (on/off + 0-100% brightness),
+  # kept in sync with what the appliance MCU reports. Doubles as a status
+  # indicator via the two effects below when "Night Light Notifications" is
+  # on -- see update_night_light_notification script.
+  - platform: lv_classic300s_humidifier
+    lv_classic300s_humidifier_id: humidifier
+    id: night_light
+    name: "Night Light"
+    effects:
+      - lambda:
+          name: "Error Flash"
+          update_interval: 250ms
+          lambda: |-
+            static bool led_on = false;
+            led_on = !led_on;
+            auto call = id(night_light).turn_on();
+            call.set_brightness(led_on ? 1.0f : 0.0f);
+            call.set_transition_length(0);
+            call.perform();
+      - lambda:
+          name: "Breathe"
+          update_interval: 40ms
+          lambda: |-
+            static float level = 0.05f;
+            static int8_t dir = 1;
+            level += dir * 0.01f;
+            if (level >= 1.0f) {
+              level = 1.0f;
+              dir = -1;
+            }
+            if (level <= 0.05f) {
+              level = 0.05f;
+              dir = 1;
+            }
+            auto call = id(night_light).turn_on();
+            call.set_brightness(level);
+            call.set_transition_length(0);
+            call.perform();
+
 button:
   - platform: restart
     id: restart_button
     name: "Restart"
+
+  - platform: template
+    name: "Reset Cleaning Reminder"
+    icon: "mdi:broom"
+    entity_category: config
+    on_press:
+      - globals.set:
+          id: mist_runtime_seconds
+          value: "0"
+
+binary_sensor:
+  # Cumulative-runtime reminder: on after ~3 days (72h) of *actual misting*
+  # time have accumulated since the last reset. Press "Reset Cleaning
+  # Reminder" after you clean the tank/wick to zero the counter.
+  - platform: template
+    name: "Needs Cleaning"
+    icon: "mdi:broom"
+    entity_category: diagnostic
+    lambda: |-
+      return id(mist_runtime_seconds) >= (72.0f * 3600.0f);
+
+  # Calendar-time reminder: on when the appliance hasn't misted at all in
+  # ~3 days (72h) -- water sitting unused in the tank that long should be
+  # replaced before the next use. Clears itself as soon as it's used again.
+  - platform: template
+    name: "Replace Water"
+    icon: "mdi:water-alert-outline"
+    entity_category: diagnostic
+    lambda: |-
+      if (id(last_mist_epoch) == 0)
+        return false;
+      auto now = id(ha_time).now();
+      if (!now.is_valid())
+        return false;
+      return (((int64_t) now.timestamp) - id(last_mist_epoch)) >= (72 * 3600);
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+  - platform: uptime
+    name: "Uptime"
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+    ssid:
+      name: "Connected SSID"
+
+# Wall-clock time synced from Home Assistant, used only for the "Replace
+# Water" calendar-time reminder above (no local RTC on the ESP32).
+time:
+  - platform: homeassistant
+    id: ha_time
+
+globals:
+  - id: mist_runtime_seconds
+    type: float
+    restore_value: true
+    initial_value: "0"
+  - id: last_mist_epoch
+    type: int64_t
+    restore_value: true
+    initial_value: "0"
+
+# Ticks the maintenance-reminder counters once a minute. Kept to a plain
+# interval (rather than reacting to mist_active's on_state) so the "used
+# within the last 3 days" clock advances even while it's actively misting.
+interval:
+  - interval: 60s
+    then:
+      - if:
+          condition:
+            binary_sensor.is_on: mist_active
+          then:
+            - globals.set:
+                id: mist_runtime_seconds
+                value: !lambda "return id(mist_runtime_seconds) + 60.0f;"
+            - if:
+                condition:
+                  lambda: "return id(ha_time).now().is_valid();"
+                then:
+                  - globals.set:
+                      id: last_mist_epoch
+                      value: !lambda "return (int64_t) id(ha_time).now().timestamp;"
+
+# Central place deciding what Night Light should be doing right now, called
+# whenever Water Empty, Tank Removed, or Mist Active changes state, and when
+# Night Light Notifications is turned on. Priority: problem > operating > idle.
+# When Night Light Notifications is off, this script is never called, so
+# Night Light behaves as a plain manually-controlled light.
+script:
+  - id: update_night_light_notification
+    then:
+      - if:
+          condition:
+            switch.is_on: night_light_notifications
+          then:
+            - if:
+                condition:
+                  or:
+                    - binary_sensor.is_on: water_empty
+                    - binary_sensor.is_on: tank_removed
+                then:
+                  - light.turn_on:
+                      id: night_light
+                      effect: "Error Flash"
+                      brightness: 100%
+                else:
+                  - if:
+                      condition:
+                        binary_sensor.is_on: mist_active
+                      then:
+                        - light.turn_on:
+                            id: night_light
+                            effect: "Breathe"
+                      else:
+                        - light.turn_off: night_light

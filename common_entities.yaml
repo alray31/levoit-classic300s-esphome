@@ -335,6 +335,11 @@ script:
           condition:
             and:
               - lambda: "return id(night_light_problem_enabled);"
+              # Only flash for a problem while the appliance is actually
+              # powered on. With Power off, pulling the tank to refill or
+              # clean it is routine, not a problem -- without this check,
+              # Night Light would flash the whole time it's out.
+              - binary_sensor.is_on: power_state
               - or:
                   - binary_sensor.is_on: water_empty
                   - binary_sensor.is_on: tank_removed

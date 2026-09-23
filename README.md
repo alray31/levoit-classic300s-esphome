@@ -93,8 +93,12 @@ Two independent switches control this, so you can enable either one, both,
 or neither -- there's no single master switch:
 
 - **Night Light Problem Notification** -- when on, Night Light **flashes**
-  whenever Water Empty or Tank Removed is true (highest priority --
-  something needs your attention)
+  whenever Water Empty or Tank Removed is true **and the appliance is
+  powered on** (highest priority -- something needs your attention). The
+  Power check is deliberate: with Power off, pulling the tank out to refill
+  or clean it is routine, not a problem, so it's excluded on purpose --
+  otherwise Night Light would flash the whole time the tank is out for a
+  refill.
 - **Night Light Operating Notification** -- when on, Night Light does a
   **slow breathing pulse (0->100%->0%)** while Mist Active is true and
   there's no problem

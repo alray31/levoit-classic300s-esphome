@@ -24,25 +24,25 @@ lv_classic300s_humidifier:
     id: power_state
     on_state:
       then:
-        - script.execute: update_night_light_notification
+        - script.execute: apply_night_light_state
   tank_removed:
     name: "Tank Removed"
     id: tank_removed
     on_state:
       then:
-        - script.execute: update_night_light_notification
+        - script.execute: apply_night_light_state
   water_empty:
     name: "Water Empty"
     id: water_empty
     on_state:
       then:
-        - script.execute: update_night_light_notification
+        - script.execute: apply_night_light_state
   mist_active:
     name: "Mist Active"
     id: mist_active
     on_state:
       then:
-        - script.execute: update_night_light_notification
+        - script.execute: apply_night_light_state
   display:
     name: "Display State"
   target_stop_active:
@@ -76,21 +76,58 @@ switch:
     stop_at_target:
       name: "Stop At Target"
 
-  # Master enable/disable for the Night Light notification behavior below.
-  # OFF: Night Light is just a plain manual light, untouched by automations.
-  # ON: Night Light doubles as a status indicator (see script below) and
-  # manual control while notifications are active gets overridden by them.
+  # Independent enable/disable for each Night Light notification behavior --
+  # some people want only one of the two. Both OFF: Night Light is just a
+  # plain manual light, untouched by automation. Either ON: Night Light gets
+  # reclaimed by apply_night_light_state below whenever its condition is
+  # true, and forced off when neither enabled condition currently applies
+  # (so manual control while at least one of these is on gets overridden).
+  #
+  # These write to `night_light_problem_enabled`/`night_light_operating_
+  # enabled` (globals, see below) rather than being read back via
+  # `switch.is_on:` from apply_night_light_state. That's deliberate: a
+  # template switch's turn_on_action/turn_off_action runs *before* the
+  # switch publishes its own new state (see
+  # esphome/components/template/switch/template_switch.cpp), so a script
+  # checking `switch.is_on:` on the very switch whose action just called it
+  # would still read the OLD value. Setting a global first, synchronously,
+  # sidesteps that entirely -- this is also why the actions below run
+  # globals.set *then* script.execute, in that order, on both switches.
   - platform: template
-    id: night_light_notifications
-    name: "Night Light Notifications"
+    id: night_light_problem_notifications
+    name: "Night Light Problem Notification"
+    icon: "mdi:alert-circle-outline"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    entity_category: config
+    turn_on_action:
+      - globals.set:
+          id: night_light_problem_enabled
+          value: "true"
+      - script.execute: apply_night_light_state
+    turn_off_action:
+      - globals.set:
+          id: night_light_problem_enabled
+          value: "false"
+      - script.execute: apply_night_light_state
+
+  - platform: template
+    id: night_light_operating_notifications
+    name: "Night Light Operating Notification"
     icon: "mdi:bell-ring-outline"
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
     entity_category: config
     turn_on_action:
+      - globals.set:
+          id: night_light_operating_enabled
+          value: "true"
       - script.execute: apply_night_light_state
     turn_off_action:
-      - light.turn_off: night_light
+      - globals.set:
+          id: night_light_operating_enabled
+          value: "false"
+      - script.execute: apply_night_light_state
 
 number:
   - platform: lv_classic300s_humidifier
@@ -111,8 +148,9 @@ select:
 light:
   # Night Light as a real dimmable light entity (on/off + 0-100% brightness),
   # kept in sync with what the appliance MCU reports. Doubles as a status
-  # indicator via the two effects below when "Night Light Notifications" is
-  # on -- see update_night_light_notification script.
+  # indicator via the two effects below when "Night Light Problem
+  # Notification" and/or "Night Light Operating Notification" are on --
+  # see apply_night_light_state script.
   - platform: lv_classic300s_humidifier
     lv_classic300s_humidifier_id: humidifier
     id: night_light
@@ -247,6 +285,20 @@ globals:
     type: int64_t
     restore_value: true
     initial_value: "0"
+  # Mirror the two Night Light notification switches (see switch: above).
+  # Not restore_value themselves -- each switch's own setup() always calls
+  # turn_on()/turn_off() once at boot (restore_mode: RESTORE_DEFAULT_ON
+  # guarantees a definite value), which sets these correctly via
+  # turn_on_action/turn_off_action before the humidifier hub's first status
+  # response can trigger apply_night_light_state.
+  - id: night_light_problem_enabled
+    type: bool
+    restore_value: false
+    initial_value: "true"
+  - id: night_light_operating_enabled
+    type: bool
+    restore_value: false
+    initial_value: "true"
 
 # Ticks the maintenance-reminder counters once a minute. Kept to a plain
 # interval (rather than reacting to mist_active's on_state) so the "used
@@ -269,28 +321,23 @@ interval:
                       id: last_mist_epoch
                       value: !lambda "return (int64_t) id(ha_time).now().timestamp;"
 
-# Two scripts, split to dodge an ESPHome ordering quirk: a template switch's
-# turn_on_action runs *before* the switch publishes its own new state (see
-# esphome/components/template/switch/template_switch.cpp -- the trigger
-# fires, then publish_state() runs after). So the moment you flip Night
-# Light Notifications on, a script checking `switch.is_on:
-# night_light_notifications` from inside that same turn_on_action would
-# still read the OLD (off) value and do nothing -- which is exactly why
-# turning notifications on while the humidifier was already misting did
-# nothing until some other sensor happened to change state afterwards.
-#
-# apply_night_light_state: the actual problem > operating > idle decision,
-# with no switch check -- safe to call directly from turn_on_action, since
-# reaching it at all already implies notifications are (about to be) on.
+# Single place deciding what Night Light should be doing right now. Called
+# by both notification switches (turn_on_action/turn_off_action) and by
+# on_state triggers on power/tank_removed/water_empty/mist_active. Priority:
+# problem flash > operating pulse > forced off > untouched (plain manual
+# light), each gated by its own enabled global -- see switch: and globals:
+# above for why this reads globals instead of `switch.is_on:`.
 script:
   - id: apply_night_light_state
     mode: restart
     then:
       - if:
           condition:
-            or:
-              - binary_sensor.is_on: water_empty
-              - binary_sensor.is_on: tank_removed
+            and:
+              - lambda: "return id(night_light_problem_enabled);"
+              - or:
+                  - binary_sensor.is_on: water_empty
+                  - binary_sensor.is_on: tank_removed
           then:
             - light.turn_on:
                 id: night_light
@@ -299,23 +346,20 @@ script:
           else:
             - if:
                 condition:
-                  binary_sensor.is_on: mist_active
+                  and:
+                    - lambda: "return id(night_light_operating_enabled);"
+                    - binary_sensor.is_on: mist_active
                 then:
                   - light.turn_on:
                       id: night_light
                       effect: "Breathe"
                 else:
-                  - light.turn_off: night_light
-
-  # update_night_light_notification: called from on_state triggers on
-  # power/tank_removed/water_empty/mist_active, where the switch's own
-  # state is already stable/correctly published -- checks the switch, then
-  # delegates to apply_night_light_state above.
-  - id: update_night_light_notification
-    mode: restart
-    then:
-      - if:
-          condition:
-            switch.is_on: night_light_notifications
-          then:
-            - script.execute: apply_night_light_state
+                  - if:
+                      # Neither condition currently applies. Only force the
+                      # light off if at least one notification switch is on
+                      # -- if both are off, leave Night Light alone (plain
+                      # manual light).
+                      condition:
+                        lambda: "return id(night_light_problem_enabled) || id(night_light_operating_enabled);"
+                      then:
+                        - light.turn_off: night_light

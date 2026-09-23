@@ -89,25 +89,29 @@ module's flash over its existing programming pins.
 
 ### Night Light doubling as a status light
 
-When the **Night Light Notifications** switch is on, the Night Light also
-acts as a status indicator, on top of being a normal dimmable light:
+Two independent switches control this, so you can enable either one, both,
+or neither -- there's no single master switch:
 
-- **Fast flash** whenever Water Empty or Tank Removed is true (highest
-  priority -- something needs your attention)
-- **Slow breathing pulse (0->100%->0%)** while Mist Active is true and
+- **Night Light Problem Notification** -- when on, Night Light **flashes**
+  whenever Water Empty or Tank Removed is true (highest priority --
+  something needs your attention)
+- **Night Light Operating Notification** -- when on, Night Light does a
+  **slow breathing pulse (0->100%->0%)** while Mist Active is true and
   there's no problem
-- Off otherwise
 
-Turn the switch off and Night Light goes back to being a plain,
-manually-controlled light untouched by any of this. The logic lives in
-`common_entities.yaml`, split across two scripts: `apply_night_light_state`
-(the actual problem > operating > idle decision) and
-`update_night_light_notification` (checks the switch, then delegates to the
-former) -- tweak the flash speed, breathing speed, or priority order in
-`apply_night_light_state` if you want something different. While an effect
-is running, the Night Light *entity* in Home Assistant doesn't flicker
-between the in-between brightness/on-off values each effect tick produces
--- it only updates when you turn the effect on/off or control the light
+If a problem is active and Problem Notification is on, that always wins
+over the breathing pulse, regardless of Operating Notification. With both
+switches off, Night Light is a plain, manually-controlled light untouched
+by any of this. With at least one switch on, Night Light gets reclaimed by
+whichever of the above currently applies, and forced off when neither does
+(so manual control while at least one of these is on gets overridden).
+
+The logic lives in `common_entities.yaml`, in one script,
+`apply_night_light_state` -- tweak the flash speed, breathing speed, or
+priority order there if you want something different. While an effect is
+running, the Night Light *entity* in Home Assistant doesn't flicker between
+the in-between brightness/on-off values each effect tick produces -- it
+only updates when an effect starts/stops or you control the light
 manually, so its state history stays meaningful. The physical light still
 pulses/flashes for real; only the HA-facing state is held steady.
 
@@ -476,9 +480,9 @@ packages:
   the appliance MCU's own behavior (see
   [Night Light doubling as a status light](#night-light-doubling-as-a-status-light)),
   not something this firmware controls. If Display is off and something
-  else you control (Night Light Notifications especially, since it sends
-  commands continuously while active) is sending commands, expect the
-  display to stay lit for as long as that keeps happening.
+  else you control (the Night Light notification switches especially,
+  since an active effect sends commands continuously) is sending commands,
+  expect the display to stay lit for as long as that keeps happening.
 - Target humidity range on the `number` entities is set to a conservative
   30-80% (see `components/lv_classic300s_humidifier/number.py`) since the
   exact MCU-enforced bounds aren't documented; widen it if your unit accepts
@@ -505,13 +509,18 @@ rounds of fixes driven by real-hardware testing:
   as an effect ran -- so notifications never reacted to real changes on
   their own. Slowed down (150ms for the breathing pulse, 400ms for the
   error flash) to leave the bus enough room.
-- Turning **Night Light Notifications** on while the humidifier was already
+- Turning the notification switch on while the humidifier was already
   running did nothing until some unrelated sensor changed state, because
   of an ESPHome ordering quirk: a template switch's `turn_on_action` runs
   *before* the switch publishes its own new state, so a script checking
   that switch's state from inside its own `turn_on_action` would read the
-  stale (still-off) value. Fixed by splitting the logic into two scripts --
-  see [Night Light doubling as a status light](#night-light-doubling-as-a-status-light).
+  stale (still-off) value. Fixed by having each switch mirror its own state
+  into a `globals:` bool (synchronously, no publish-timing issue) instead
+  of the script reading `switch.is_on:` -- see
+  [Night Light doubling as a status light](#night-light-doubling-as-a-status-light).
+  This also made it straightforward to split what was originally one
+  "Night Light Notifications" switch into the two independent switches
+  described there, since each just flips its own global.
 - The Night Light entity in Home Assistant no longer flickers through every
   in-between brightness/on-off value the effects produce -- only the
   physical light does. See the same section above.

@@ -348,6 +348,23 @@ globals:
     type: bool
     restore_value: false
     initial_value: "true"
+  # What the Night Light entity looked like right before a notification
+  # effect (Error Flash / Breathe) last seized it -- captured once, the
+  # moment an effect starts from a fully-manual state (see the "only if not
+  # already mid-effect" guards in apply_night_light_state below, so a
+  # Breathe->Error Flash priority handover doesn't overwrite this with the
+  # effect's own transient state). Used to put the entity back exactly
+  # where the user left it once neither notification condition applies
+  # anymore, instead of just leaving it wherever the last effect tick
+  # happened to land it.
+  - id: night_light_pre_effect_on
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: night_light_pre_effect_brightness
+    type: float
+    restore_value: false
+    initial_value: "1.0"
 
 # Ticks the maintenance-reminder counters once a minute. Kept to a plain
 # interval (rather than reacting to mist_active's on_state) so the "used
@@ -419,6 +436,20 @@ script:
                         - binary_sensor.is_on: water_empty
                         - binary_sensor.is_on: tank_removed
                 then:
+                  # Remember what the entity looked like before we seize it
+                  # -- but only if nothing was already governing it (a
+                  # Breathe->Error Flash priority handover shouldn't
+                  # overwrite this with Breathe's own transient state).
+                  - if:
+                      condition:
+                        lambda: "return id(night_light).get_current_effect_index() == 0;"
+                      then:
+                        - globals.set:
+                            id: night_light_pre_effect_on
+                            value: !lambda "return id(night_light).remote_values.is_on();"
+                        - globals.set:
+                            id: night_light_pre_effect_brightness
+                            value: !lambda "return id(night_light).remote_values.get_brightness();"
                   - light.turn_on:
                       id: night_light
                       effect: "Error Flash"
@@ -430,6 +461,16 @@ script:
                           - lambda: "return id(night_light_operating_enabled);"
                           - binary_sensor.is_on: mist_active
                       then:
+                        - if:
+                            condition:
+                              lambda: "return id(night_light).get_current_effect_index() == 0;"
+                            then:
+                              - globals.set:
+                                  id: night_light_pre_effect_on
+                                  value: !lambda "return id(night_light).remote_values.is_on();"
+                              - globals.set:
+                                  id: night_light_pre_effect_brightness
+                                  value: !lambda "return id(night_light).remote_values.get_brightness();"
                         - light.turn_on:
                             id: night_light
                             effect: "Breathe"
@@ -453,16 +494,46 @@ script:
                             # just for being armed.
                             #
                             # So: if an effect is currently running, stop it
-                            # (effect: "None" -- see LightState::start_effect_
-                            # in ESPHome core, effect index 0 just stops
-                            # whatever's active) but leave state/brightness
-                            # exactly where the effect left them, handing
-                            # the entity back for manual control. If no
-                            # effect is running, this is a deliberate no-op
-                            # -- don't touch a light nothing is governing.
+                            # and put the entity back exactly where it was
+                            # *before* the first of the two blocks above
+                            # seized it (night_light_pre_effect_on/
+                            # _brightness) -- not wherever the effect's last
+                            # tick happened to leave it. If no effect is
+                            # running, this is a deliberate no-op -- don't
+                            # touch a light nothing is governing.
                             condition:
                               lambda: "return id(night_light).get_current_effect_index() != 0;"
                             then:
-                              - light.turn_on:
-                                  id: night_light
-                                  effect: "None"
+                              - if:
+                                  condition:
+                                    lambda: "return id(night_light_pre_effect_on);"
+                                  then:
+                                    # Two steps, not one -- ESPHome's config
+                                    # validation flat out rejects effect:
+                                    # and transition_length: in the same
+                                    # light.turn_on: (they're in the same
+                                    # "transformer" exclusion group, along
+                                    # with flash). Step 1 stops the running
+                                    # effect (effect: "None"); step 2 then
+                                    # snaps to the saved brightness with no
+                                    # fade. Splitting them this way avoids
+                                    # that conflict, and also sidesteps the
+                                    # OTHER landmine -- combining effect:
+                                    # "None" with state: false in one call
+                                    # makes ESPHome log "cannot start effect
+                                    # when turning off" and silently drop
+                                    # the effect, so OFF is handled as its
+                                    # own light.turn_off: below instead,
+                                    # which stops any active effect on its
+                                    # own without needing an effect: field.
+                                    - light.turn_on:
+                                        id: night_light
+                                        effect: "None"
+                                    - light.turn_on:
+                                        id: night_light
+                                        brightness: !lambda "return id(night_light_pre_effect_brightness);"
+                                        transition_length: 0s
+                                  else:
+                                    - light.turn_off:
+                                        id: night_light
+                                        transition_length: 0s

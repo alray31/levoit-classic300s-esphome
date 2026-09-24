@@ -155,6 +155,20 @@ light:
     lv_classic300s_humidifier_id: humidifier
     id: night_light
     name: "Night Light"
+    # Re-apply whatever the notification switches say should currently be
+    # showing whenever the light transitions off->on -- covers manually
+    # turning the Night Light entity back on (HA UI, an automation, or an
+    # off/on cycle), which otherwise leaves it sitting at a static manual
+    # brightness even though a notification switch is still enabled. Only
+    # fires on an actual off->on transition (not on every brightness tweak
+    # while already on), and is a no-op if both notification switches are
+    # off -- see apply_night_light_state below. Also fires when
+    # apply_night_light_state's own light.turn_on: calls turn the light on
+    # from off; that's a harmless redundant re-evaluation (mode: restart
+    # makes it safe), not a loop -- current_values is already "on" by then,
+    # so the trigger's own off->on edge detection doesn't fire again.
+    on_turn_on:
+      - script.execute: apply_night_light_state
     effects:
       # NOTE: both effects below drive the *real* light over the same A5
       # UART link used for status polling (there is no local GPIO LED --
@@ -322,49 +336,73 @@ interval:
                       value: !lambda "return (int64_t) id(ha_time).now().timestamp;"
 
 # Single place deciding what Night Light should be doing right now. Called
-# by both notification switches (turn_on_action/turn_off_action) and by
-# on_state triggers on power/tank_removed/water_empty/mist_active. Priority:
-# problem flash > operating pulse > forced off > untouched (plain manual
-# light), each gated by its own enabled global -- see switch: and globals:
-# above for why this reads globals instead of `switch.is_on:`.
+# by both notification switches (turn_on_action/turn_off_action), by
+# on_state triggers on power/tank_removed/water_empty/mist_active, and by
+# the light's own on_turn_on: (see light: above). Priority: problem flash >
+# operating pulse > forced off > untouched (plain manual light), each gated
+# by its own enabled global -- see switch: and globals: above for why this
+# reads globals instead of `switch.is_on:`.
 script:
   - id: apply_night_light_state
     mode: restart
     then:
       - if:
+          # Do nothing until the hub has parsed at least one real 20-byte
+          # status frame from the appliance. Without this guard, the two
+          # notification switches restoring ON at boot (restore_mode:
+          # RESTORE_DEFAULT_ON runs their turn_on_action, which calls this
+          # script) would run this logic against power_state/mist_active/
+          # etc. still sitting at their compile-time default of `false` --
+          # concluding "neither condition applies" and forcing Night Light
+          # off, even if the appliance is actually powered on and misting.
+          # That bogus off then stuck until something toggled a switch,
+          # since nothing re-ran this script afterwards on its own -- the
+          # *sensors* did change to their real values once the first status
+          # frame arrived (power/mist_active are among the fields forced to
+          # publish on that first frame, see handle_status_payload_()'s
+          # `first_status`), but re-evaluating with the right data only
+          # happens if something calls this script again, which this guard
+          # ensures: power/mist_active's own on_state: triggers do exactly
+          # that, once real data is in, so the correct effect starts on its
+          # own without needing a manual switch off/on.
           condition:
-            and:
-              - lambda: "return id(night_light_problem_enabled);"
-              # Only flash for a problem while the appliance is actually
-              # powered on. With Power off, pulling the tank to refill or
-              # clean it is routine, not a problem -- without this check,
-              # Night Light would flash the whole time it's out.
-              - binary_sensor.is_on: power_state
-              - or:
-                  - binary_sensor.is_on: water_empty
-                  - binary_sensor.is_on: tank_removed
+            lambda: "return id(humidifier).got_first_status();"
           then:
-            - light.turn_on:
-                id: night_light
-                effect: "Error Flash"
-                brightness: 100%
-          else:
             - if:
                 condition:
                   and:
-                    - lambda: "return id(night_light_operating_enabled);"
-                    - binary_sensor.is_on: mist_active
+                    - lambda: "return id(night_light_problem_enabled);"
+                    # Only flash for a problem while the appliance is
+                    # actually powered on. With Power off, pulling the tank
+                    # to refill or clean it is routine, not a problem --
+                    # without this check, Night Light would flash the whole
+                    # time it's out.
+                    - binary_sensor.is_on: power_state
+                    - or:
+                        - binary_sensor.is_on: water_empty
+                        - binary_sensor.is_on: tank_removed
                 then:
                   - light.turn_on:
                       id: night_light
-                      effect: "Breathe"
+                      effect: "Error Flash"
+                      brightness: 100%
                 else:
                   - if:
-                      # Neither condition currently applies. Only force the
-                      # light off if at least one notification switch is on
-                      # -- if both are off, leave Night Light alone (plain
-                      # manual light).
                       condition:
-                        lambda: "return id(night_light_problem_enabled) || id(night_light_operating_enabled);"
+                        and:
+                          - lambda: "return id(night_light_operating_enabled);"
+                          - binary_sensor.is_on: mist_active
                       then:
-                        - light.turn_off: night_light
+                        - light.turn_on:
+                            id: night_light
+                            effect: "Breathe"
+                      else:
+                        - if:
+                            # Neither condition currently applies. Only
+                            # force the light off if at least one
+                            # notification switch is on -- if both are off,
+                            # leave Night Light alone (plain manual light).
+                            condition:
+                              lambda: "return id(night_light_problem_enabled) || id(night_light_operating_enabled);"
+                            then:
+                              - light.turn_off: night_light

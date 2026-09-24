@@ -374,9 +374,11 @@ interval:
 # by both notification switches (turn_on_action/turn_off_action), by
 # on_state triggers on power/tank_removed/water_empty/mist_active, and by
 # the light's own on_turn_on: (see light: above). Priority: problem flash >
-# operating pulse > forced off > untouched (plain manual light), each gated
-# by its own enabled global -- see switch: and globals: above for why this
-# reads globals instead of `switch.is_on:`.
+# operating pulse > released for manual control. A switch only claims the
+# light *while its own condition is actively true* -- being armed but
+# currently idle (Problem enabled with no problem, Operating just switched
+# off) releases the light rather than locking out manual control. See the
+# globals: above for why this reads globals instead of `switch.is_on:`.
 script:
   - id: apply_night_light_state
     mode: restart
@@ -433,11 +435,34 @@ script:
                             effect: "Breathe"
                       else:
                         - if:
-                            # Neither condition currently applies. Only
-                            # force the light off if at least one
-                            # notification switch is on -- if both are off,
-                            # leave Night Light alone (plain manual light).
+                            # Neither condition currently applies -- release
+                            # the light. This used to force it off whenever
+                            # at least one notification switch was armed,
+                            # even if that switch's own condition wasn't
+                            # currently true (e.g. Problem Notification on
+                            # but no actual problem, or Operating
+                            # Notification just switched off). That meant a
+                            # switch being *armed* was enough to lock out
+                            # manual control of the entity, which isn't what
+                            # we want: each switch should only take the
+                            # light over *while its own condition is
+                            # actively true*, and hand it right back the
+                            # moment it isn't -- Problem still wins priority
+                            # over Operating (see the outer/middle branches
+                            # above), but neither should claim the light
+                            # just for being armed.
+                            #
+                            # So: if an effect is currently running, stop it
+                            # (effect: "None" -- see LightState::start_effect_
+                            # in ESPHome core, effect index 0 just stops
+                            # whatever's active) but leave state/brightness
+                            # exactly where the effect left them, handing
+                            # the entity back for manual control. If no
+                            # effect is running, this is a deliberate no-op
+                            # -- don't touch a light nothing is governing.
                             condition:
-                              lambda: "return id(night_light_problem_enabled) || id(night_light_operating_enabled);"
+                              lambda: "return id(night_light).get_current_effect_index() != 0;"
                             then:
-                              - light.turn_off: night_light
+                              - light.turn_on:
+                                  id: night_light
+                                  effect: "None"

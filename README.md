@@ -45,6 +45,12 @@ not copied from the source repo).
 If you republish or build on this, keep crediting the original protocol
 research -- it's the hard part.
 
+This repo's own code (the ESPHome component, YAML, and this README) is MIT
+licensed -- see [`LICENSE`](LICENSE). The mirrored protocol docs under
+[`docs/`](docs/) are Taxom's own work and stay under his original CC
+BY-NC-SA 4.0 terms -- see
+[`docs/LICENSE-protocol-docs-CC-BY-NC-SA-4.0.txt`](docs/LICENSE-protocol-docs-CC-BY-NC-SA-4.0.txt).
+
 ### How it works
 
 The Classic 300S has two separate MCUs on two separate boards:
@@ -634,6 +640,12 @@ protocole documenté (code original, non copié du dépôt source).
 
 Si vous republiez ce projet ou vous en inspirez, continuez de créditer la
 recherche originale sur le protocole -- c'est la partie difficile.
+
+Le code de ce dépôt (le composant ESPHome, les fichiers YAML, ce README)
+est sous licence MIT -- voir [`LICENSE`](LICENSE). Les notes de protocole
+mirroitées dans [`docs/`](docs/) sont le travail original de Taxom et
+restent sous ses conditions CC BY-NC-SA 4.0 d'origine -- voir
+[`docs/LICENSE-protocol-docs-CC-BY-NC-SA-4.0.txt`](docs/LICENSE-protocol-docs-CC-BY-NC-SA-4.0.txt).
 
 ### Comment ça fonctionne
 

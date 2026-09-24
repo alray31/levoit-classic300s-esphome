@@ -1,3 +1,17 @@
+This license applies to the original software and documentation authored in
+this repository: the ESPHome external component (C++ and Python), the YAML
+configuration files, and this repository's own README.
+
+It does NOT apply to the third-party protocol documentation mirrored under
+`docs/` (`A5_UART_protocol.md`, `ESPHome_replacement_notes.md`,
+`hardware_components.md`). Those files are the original work of Maxim
+Pivovarov / MaxPi ("Taxom"), mirrored here for convenience/offline reference,
+and remain licensed under Creative Commons Attribution-NonCommercial-
+ShareAlike 4.0 International -- see
+`docs/LICENSE-protocol-docs-CC-BY-NC-SA-4.0.txt` for the full terms.
+
+---
+
 MIT License
 
 Copyright (c) 2026 Alain Raymond

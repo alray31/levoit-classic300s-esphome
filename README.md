@@ -18,17 +18,18 @@ control in Home Assistant with no cloud/VeSync dependency.
 1. [Credit](#credit)
 2. [How it works](#how-it-works)
 3. [What you get](#what-you-get)
-4. [Identify your hardware variant](#identify-your-hardware-variant)
-5. [What you'll need](#what-youll-need)
-6. [Wiring](#wiring)
-7. [Step 1 -- Back up the stock firmware](#step-1----back-up-the-stock-firmware)
-8. [Step 2 -- Configure secrets](#step-2----configure-secrets)
-9. [Step 3 -- Flash the ESPHome firmware](#step-3----flash-the-esphome-firmware)
-10. [Step 4 -- Add it to Home Assistant](#step-4----add-it-to-home-assistant)
-11. [Step 5 -- Reassemble and test on mains power](#step-5----reassemble-and-test-on-mains-power)
-12. [Quick install via the Home Assistant ESPHome Dashboard](#quick-install-via-the-home-assistant-esphome-dashboard)
-13. [Design notes worth knowing before you wire up automations](#design-notes-worth-knowing-before-you-wire-up-automations)
-14. [Status of this build](#status-of-this-build)
+4. [Optional: a native `humidifier` card via a companion HACS integration](#optional-a-native-humidifier-card-via-a-companion-hacs-integration)
+5. [Identify your hardware variant](#identify-your-hardware-variant)
+6. [What you'll need](#what-youll-need)
+7. [Wiring](#wiring)
+8. [Step 1 -- Back up the stock firmware](#step-1----back-up-the-stock-firmware)
+9. [Step 2 -- Configure secrets](#step-2----configure-secrets)
+10. [Step 3 -- Flash the ESPHome firmware](#step-3----flash-the-esphome-firmware)
+11. [Step 4 -- Add it to Home Assistant](#step-4----add-it-to-home-assistant)
+12. [Step 5 -- Reassemble and test on mains power](#step-5----reassemble-and-test-on-mains-power)
+13. [Quick install via the Home Assistant ESPHome Dashboard](#quick-install-via-the-home-assistant-esphome-dashboard)
+14. [Design notes worth knowing before you wire up automations](#design-notes-worth-knowing-before-you-wire-up-automations)
+15. [Status of this build](#status-of-this-build)
 
 ### Credit
 
@@ -169,6 +170,42 @@ want to be alerted):
 Both rely on the `time:` component (synced from Home Assistant over the
 API) and a couple of `globals:` counters -- see `common_entities.yaml` if
 you want to change the 72h threshold for either one.
+
+### Optional: a native `humidifier` card via a companion HACS integration
+
+The entities above expose Mode, the humidity/mist targets, and Power as
+separate `select` / `number` / `switch` entities -- accurate, but it means
+several separate rows/cards in Lovelace instead of the single familiar
+"humidifier" widget (power toggle + Auto/Sleep/Manual dropdown + one target
+dial) most native Home Assistant humidifier integrations give you.
+
+To get that, there's a separate companion project:
+[**alray31/levoit-classic300s-humidifier-bridge**](https://github.com/alray31/levoit-classic300s-humidifier-bridge)
+-- a small HACS integration that combines this firmware's `select`/
+`number`/`switch` entities into one native `humidifier` entity, set up
+entirely through the UI (Settings -> Devices & services -> Add integration;
+it auto-detects your device's entities and pre-fills the form, no YAML to
+write).
+
+**Why this needed its own integration instead of a plain `template:`
+humidifier:** Home Assistant's built-in `template` integration has no
+`humidifier` platform at all -- unlike `switch`, `light`, `select`, `number`,
+etc., which all have one -- so a pure-YAML template humidifier isn't
+possible for this domain. [Generic
+Hygrostat](https://www.home-assistant.io/integrations/generic_hygrostat/)
+was also considered and rejected: it makes its own on/off decisions from a
+humidity sensor via its own hysteresis logic, which would fight with the
+Auto/Sleep band logic already running on the appliance's own MCU. A
+third-party HACS template humidifier exists too, but its min/max range is
+fixed at setup time, so it can't give Manual mode its own 1-9 dial range
+the way this bridge does. The bridge repo's README covers this reasoning
+in full.
+
+This is entirely **optional** -- the raw select/number/switch entities from
+this firmware work perfectly well on their own. The bridge doesn't talk to
+the appliance or this firmware directly either; it only relays
+`switch`/`select`/`number` service calls to entities that already exist, so
+it's maintained as a separate repo rather than folded into this one.
 
 ### Identify your hardware variant
 
@@ -570,17 +607,18 @@ dépendance au cloud/VeSync.
 1. [Crédit](#crédit)
 2. [Comment ça fonctionne](#comment-ça-fonctionne)
 3. [Ce que vous obtenez](#ce-que-vous-obtenez)
-4. [Identifier votre variante matérielle](#identifier-votre-variante-matérielle)
-5. [Ce dont vous aurez besoin](#ce-dont-vous-aurez-besoin)
-6. [Câblage](#câblage)
-7. [Étape 1 -- Sauvegarder le micrologiciel d'origine](#étape-1----sauvegarder-le-micrologiciel-dorigine)
-8. [Étape 2 -- Configurer les secrets](#étape-2----configurer-les-secrets)
-9. [Étape 3 -- Flasher le micrologiciel ESPHome](#étape-3----flasher-le-micrologiciel-esphome)
-10. [Étape 4 -- L'ajouter à Home Assistant](#étape-4----lajouter-à-home-assistant)
-11. [Étape 5 -- Réassembler et tester sur secteur](#étape-5----réassembler-et-tester-sur-secteur)
-12. [Installation rapide via le tableau de bord ESPHome de Home Assistant](#installation-rapide-via-le-tableau-de-bord-esphome-de-home-assistant)
-13. [Notes de conception à connaître avant de créer des automatisations](#notes-de-conception-à-connaître-avant-de-créer-des-automatisations)
-14. [État de cette version](#état-de-cette-version)
+4. [Optionnel : une carte `humidifier` native via une intégration HACS complémentaire](#optionnel--une-carte-humidifier-native-via-une-intégration-hacs-complémentaire)
+5. [Identifier votre variante matérielle](#identifier-votre-variante-matérielle)
+6. [Ce dont vous aurez besoin](#ce-dont-vous-aurez-besoin)
+7. [Câblage](#câblage)
+8. [Étape 1 -- Sauvegarder le micrologiciel d'origine](#étape-1----sauvegarder-le-micrologiciel-dorigine)
+9. [Étape 2 -- Configurer les secrets](#étape-2----configurer-les-secrets)
+10. [Étape 3 -- Flasher le micrologiciel ESPHome](#étape-3----flasher-le-micrologiciel-esphome)
+11. [Étape 4 -- L'ajouter à Home Assistant](#étape-4----lajouter-à-home-assistant)
+12. [Étape 5 -- Réassembler et tester sur secteur](#étape-5----réassembler-et-tester-sur-secteur)
+13. [Installation rapide via le tableau de bord ESPHome de Home Assistant](#installation-rapide-via-le-tableau-de-bord-esphome-de-home-assistant)
+14. [Notes de conception à connaître avant de créer des automatisations](#notes-de-conception-à-connaître-avant-de-créer-des-automatisations)
+15. [État de cette version](#état-de-cette-version)
 
 ### Crédit
 
@@ -744,6 +782,47 @@ Les deux s'appuient sur le composant `time:` (synchronisé depuis Home
 Assistant via l'API) et quelques compteurs `globals:` -- voir
 `common_entities.yaml` si vous voulez changer le seuil de 72h pour l'un ou
 l'autre.
+
+### Optionnel : une carte `humidifier` native via une intégration HACS complémentaire
+
+Les entités ci-dessus exposent le mode, les cibles d'humidité/brume et
+l'alimentation comme des entités `select` / `number` / `switch` séparées --
+précis, mais cela donne plusieurs lignes/cartes distinctes dans Lovelace
+plutôt que le widget « humidificateur » unique et familier (bouton power +
+menu déroulant Auto/Sleep/Manual + un seul cadran de cible) qu'offrent la
+plupart des intégrations d'humidificateur natives de Home Assistant.
+
+Pour obtenir cela, il existe un projet complémentaire séparé :
+[**alray31/levoit-classic300s-humidifier-bridge**](https://github.com/alray31/levoit-classic300s-humidifier-bridge)
+-- une petite intégration HACS qui combine les entités `select`/`number`/
+`switch` de ce micrologiciel en une seule vraie entité `humidifier`,
+configurable entièrement via l'interface (Paramètres -> Appareils et
+services -> Ajouter une intégration ; elle détecte automatiquement les
+entités de votre appareil et pré-remplit le formulaire, aucun YAML à
+écrire).
+
+**Pourquoi une intégration à part plutôt qu'un simple `template:`
+humidifier :** l'intégration `template` intégrée à Home Assistant n'a
+tout simplement aucune plateforme `humidifier` -- contrairement à
+`switch`, `light`, `select`, `number`, etc., qui en ont toutes une --
+donc un template humidifier en YAML pur n'est pas possible pour ce
+domaine. [Generic
+Hygrostat](https://www.home-assistant.io/integrations/generic_hygrostat/)
+a aussi été envisagé, puis écarté : il prend lui-même ses décisions
+on/off à partir d'un capteur d'humidité via sa propre logique
+d'hystérésis, ce qui entrerait en conflit avec la logique Auto/Sleep déjà
+gérée par le MCU de l'appareil. Il existe aussi un template humidifier
+HACS tiers, mais sa plage min/max est fixée à la configuration, donc il
+ne peut pas donner au mode Manuel sa propre plage de cadran 1-9 comme le
+fait cette passerelle. Le README du dépôt de la passerelle détaille ce
+raisonnement en entier.
+
+Ceci est entièrement **optionnel** -- les entités select/number/switch
+brutes de ce micrologiciel fonctionnent très bien seules. La passerelle
+ne parle ni à l'appareil ni à ce micrologiciel directement non plus ;
+elle ne fait que relayer des appels de service `switch`/`select`/`number`
+vers des entités qui existent déjà, d'où le fait qu'elle soit maintenue
+comme un dépôt séparé plutôt qu'intégrée à celui-ci.
 
 ### Identifier votre variante matérielle
 

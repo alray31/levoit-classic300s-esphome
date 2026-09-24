@@ -45,6 +45,7 @@ lv_classic300s_humidifier:
   water_empty:
     name: "Water Empty"
     id: water_empty
+    icon: "mdi:car-coolant-level"
     on_state:
       then:
         - script.execute: apply_night_light_state
@@ -56,6 +57,7 @@ lv_classic300s_humidifier:
         - script.execute: apply_night_light_state
   display:
     name: "Display State"
+    icon: "mdi:clock-digital"
   target_stop_active:
     name: "Target Stop Active"
 
@@ -92,6 +94,7 @@ switch:
       name: "Power"
     display:
       name: "Display"
+      icon: "mdi:clock-digital"
     stop_at_target:
       name: "Stop At Target"
 
@@ -174,6 +177,7 @@ light:
     lv_classic300s_humidifier_id: humidifier
     id: night_light
     name: "Night Light"
+    icon: "mdi:led-on"
     # ESPHome's own light: default is restore_mode: ALWAYS_OFF -- at every
     # boot, LightState::setup() would otherwise issue a real, explicit
     # LightCall(state=false) before this platform's own sync_from_parent_()

@@ -96,6 +96,12 @@ class LVClassic300SHumidifier : public Component, public uart::UARTDevice {
   uint8_t auto_target() const { return this->auto_target_; }
   uint8_t sleep_target() const { return this->sleep_target_; }
   WorkMode work_mode() const { return this->work_mode_; }
+  // true once at least one real 20-byte status frame has been parsed from
+  // the appliance. Used by common_entities.yaml's apply_night_light_state
+  // script to avoid making a Night Light decision from default/stale
+  // binary_sensor values (all false) in the brief window between boot and
+  // the first real status reply -- see that script for why.
+  bool got_first_status() const { return this->got_first_status_; }
 
   // fired whenever a new decoded status is available, used by the select/
   // number/switch platforms to keep their reported state in sync with what

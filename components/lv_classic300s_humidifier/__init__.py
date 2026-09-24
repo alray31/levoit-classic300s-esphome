@@ -131,6 +131,22 @@ CONFIG_SCHEMA = (
     .extend(cv.COMPONENT_SCHEMA)
 )
 
+# The A5 protocol is fixed at 9600 8N1, and the hub both requests (TX) and
+# parses (RX) status frames -- this used to be a runtime check
+# (LVClassic300SHumidifier::dump_config() calling check_uart_settings(9600)),
+# but that C++ helper is deprecated (removed in ESPHome 2027.3.0) in favor of
+# validating the referenced uart: bus at config time instead, which also
+# catches a mismatched bus before ever flashing.
+FINAL_VALIDATE_SCHEMA = uart.final_validate_device_schema(
+    "lv_classic300s_humidifier",
+    baud_rate=9600,
+    require_tx=True,
+    require_rx=True,
+    data_bits=8,
+    parity=None,
+    stop_bits=1,
+)
+
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])

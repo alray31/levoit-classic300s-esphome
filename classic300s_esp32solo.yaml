@@ -31,7 +31,10 @@ api:
 
 ota:
   - platform: esphome
-    password: !secret ota_password
+    # Encryption reuses the api: key above (Noise NNpsk0) -- it both keeps
+    # the firmware image confidential and authenticates the uploader, so a
+    # separate password isn't needed and costs flash/RAM for nothing.
+    encryption:
 
 wifi:
   ssid: !secret wifi_ssid

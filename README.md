@@ -349,12 +349,12 @@ verified, matching pair, you have a safe way back to stock.
 
 1. `cp secrets.yaml.example secrets.yaml` (this file is gitignored -- never
    commit it or share it).
-2. Fill in the 5 values:
+2. Fill in the 4 values:
    - `wifi_ssid` / `wifi_password` -- your WiFi network
    - `api_encryption_key` -- a random 32-byte base64 key, e.g. generate one
-     with `python3 -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"`
-   - `ota_password` -- any password of your choosing, protects future OTA
-     updates
+     with `python3 -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"`.
+     Also protects future OTA updates -- `ota:` reuses this same key instead
+     of a separate password.
    - `ap_password` -- any password of at least 8 characters, for the
      fallback WiFi AP the device creates if it can't reach your network
 
@@ -448,7 +448,7 @@ api:
 
 ota:
   - platform: esphome
-    password: !secret ota_password
+    encryption:   # reuses the api: key above -- no separate OTA password
 
 wifi:
   ssid: !secret wifi_ssid
@@ -986,13 +986,13 @@ revenir à l'origine.
 
 1. `cp secrets.yaml.example secrets.yaml` (ce fichier est dans le
    .gitignore -- ne le committez ni ne le partagez jamais).
-2. Remplissez les 5 valeurs :
+2. Remplissez les 4 valeurs :
    - `wifi_ssid` / `wifi_password` -- votre réseau WiFi
    - `api_encryption_key` -- une clé base64 aléatoire de 32 octets, par
      exemple générée avec `python3 -c "import os, base64;
-     print(base64.b64encode(os.urandom(32)).decode())"`
-   - `ota_password` -- un mot de passe de votre choix, protège les futures
-     mises à jour OTA
+     print(base64.b64encode(os.urandom(32)).decode())"`. Protège aussi les
+     futures mises à jour OTA -- `ota:` réutilise cette même clé au lieu
+     d'un mot de passe séparé.
    - `ap_password` -- un mot de passe d'au moins 8 caractères, pour le
      point d'accès WiFi de secours que l'appareil crée s'il ne peut pas
      joindre votre réseau
@@ -1093,7 +1093,7 @@ api:
 
 ota:
   - platform: esphome
-    password: !secret ota_password
+    encryption:   # réutilise la clé de api: ci-dessus -- pas de mot de passe OTA séparé
 
 wifi:
   ssid: !secret wifi_ssid

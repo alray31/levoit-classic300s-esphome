@@ -15,6 +15,17 @@ lv_classic300s_humidifier:
     name: "Temperature"
   night_light:
     name: "Night Light Level"
+    # Disabled by default: while a Breathe/Error Flash notification effect
+    # is running, the appliance echoes a new night_light value on almost
+    # every status frame (~every 150-400ms, matching the effect's own
+    # update_interval), so this sensor would otherwise publish several
+    # times a second for as long as an effect runs -- noisy in the logs and
+    # in HA's recorder/history for a value nobody actually needs tracked
+    # over time (the Night Light *light* entity already shows the current
+    # brightness, and deliberately does NOT flicker like this during an
+    # effect -- see light: below). Enable it in the device's entity list in
+    # HA if you specifically want to graph/debug raw night light level.
+    disabled_by_default: true
   output_level:
     name: "Output Level"
     icon: "mdi:water"
@@ -56,6 +67,14 @@ lv_classic300s_humidifier:
   last_status_frame:
     name: "Last Status Frame"
     entity_category: diagnostic
+    # Disabled by default, for the same reason as night_light: above --
+    # unlike every other field in handle_status_payload_(), this one
+    # publishes unconditionally on *every* parsed status frame (no
+    # change-gating, by design -- it's a raw diagnostic dump), so during an
+    # active notification effect it republishes several times a second for
+    # as long as the effect runs. Enable it in HA only while actively
+    # debugging the UART protocol; leave it off for normal use.
+    disabled_by_default: true
 
   # The MCU reports physical power-button long-presses; stock firmware uses
   # ~5s hold for WiFi pairing/reconnect and ~15s for factory reset. Wire up
@@ -155,6 +174,22 @@ light:
     lv_classic300s_humidifier_id: humidifier
     id: night_light
     name: "Night Light"
+    # ESPHome's own light: default is restore_mode: ALWAYS_OFF -- at every
+    # boot, LightState::setup() would otherwise issue a real, explicit
+    # LightCall(state=false) before this platform's own sync_from_parent_()
+    # ever runs, and that call reaches write_state() -> set_night_light(0),
+    # i.e. an actual UART command physically turning the appliance's Night
+    # Light off. Since this entity's source of truth is the appliance's own
+    # echoed state (not ESPHome's flash), that forced-off then "sticks":
+    # the next status frame just reports back the off state we ourselves
+    # just commanded, so nothing self-corrects. RESTORE_DEFAULT_OFF instead
+    # restores the state+brightness ESPHome last saved -- which tracks the
+    # real appliance state, since sync_from_parent_()'s LightCall is not
+    # marked set_save(false) (only the effect ticks are, deliberately, to
+    # avoid flash wear -- see the effects below), so this ends up
+    # commanding back on at essentially the same level it was already at,
+    # a practical no-op, instead of a real forced turn-off on every reboot.
+    restore_mode: RESTORE_DEFAULT_OFF
     # Re-apply whatever the notification switches say should currently be
     # showing whenever the light transitions off->on -- covers manually
     # turning the Night Light entity back on (HA UI, an automation, or an

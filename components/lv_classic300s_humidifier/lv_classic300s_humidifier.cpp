@@ -64,8 +64,7 @@ void LVClassic300SHumidifier::loop() {
 
 void LVClassic300SHumidifier::dump_config() {
   ESP_LOGCONFIG(TAG, "Levoit Classic 300S humidifier:");
-  ESP_LOGCONFIG(TAG, "  Status poll interval: %ums", this->status_interval_ms_);
-  this->check_uart_settings(9600);
+  ESP_LOGCONFIG(TAG, "  Status poll interval: %lums", this->status_interval_ms_);
 }
 
 void LVClassic300SHumidifier::handle_incoming_byte_(uint8_t byte) {

@@ -369,6 +369,19 @@ globals:
     type: float
     restore_value: false
     initial_value: "1.0"
+  # Which of the two notification behaviors (if any) currently governs the
+  # Night Light entity: 0 = neither (manual control), 1 = Problem (Error
+  # Flash), 2 = Operating (Breathe). Used instead of checking
+  # get_current_effect_index() directly so apply_night_light_state can tell
+  # "Problem just cleared this pass" apart from "Operating was already
+  # running" -- the former always hands the light straight back to
+  # night_light_pre_effect_on/_brightness, even if mist_active happens to
+  # already be true again by the same pass (e.g. auto mode resuming mist the
+  # instant the tank goes back in) -- see apply_night_light_state below.
+  - id: night_light_active_reason
+    type: int
+    restore_value: false
+    initial_value: "0"
 
 # Ticks the maintenance-reminder counters once a minute. Kept to a plain
 # interval (rather than reacting to mist_active's on_state) so the "used
@@ -446,7 +459,7 @@ script:
                   # overwrite this with Breathe's own transient state).
                   - if:
                       condition:
-                        lambda: "return id(night_light).get_current_effect_index() == 0;"
+                        lambda: "return id(night_light_active_reason) == 0;"
                       then:
                         - globals.set:
                             id: night_light_pre_effect_on
@@ -454,90 +467,132 @@ script:
                         - globals.set:
                             id: night_light_pre_effect_brightness
                             value: !lambda "return id(night_light).remote_values.get_brightness();"
+                  - globals.set:
+                      id: night_light_active_reason
+                      value: "1"
                   - light.turn_on:
                       id: night_light
                       effect: "Error Flash"
                       brightness: 100%
                 else:
                   - if:
+                      # Problem just cleared this very pass (we were still
+                      # flagged as governed by it) -- hand the light straight
+                      # back to night_light_pre_effect_on/_brightness, full
+                      # stop. Deliberately does NOT fall through to the
+                      # Operating check below even if mist_active happens to
+                      # already be true again by now (e.g. auto mode
+                      # resuming mist the instant the tank goes back in) --
+                      # otherwise clearing a fault would sometimes silently
+                      # hand the light straight to Operating instead of
+                      # restoring it, which defeats the point of saving that
+                      # pre-effect state in the first place. Operating still
+                      # gets a fair chance to claim the light -- just on
+                      # whatever triggers apply_night_light_state next (e.g.
+                      # mist_active's own on_state: further below, or the
+                      # light's on_turn_on:), once reason is back to 0.
                       condition:
-                        and:
-                          - lambda: "return id(night_light_operating_enabled);"
-                          - binary_sensor.is_on: mist_active
+                        lambda: "return id(night_light_active_reason) == 1;"
                       then:
-                        - if:
-                            condition:
-                              lambda: "return id(night_light).get_current_effect_index() == 0;"
-                            then:
-                              - globals.set:
-                                  id: night_light_pre_effect_on
-                                  value: !lambda "return id(night_light).remote_values.is_on();"
-                              - globals.set:
-                                  id: night_light_pre_effect_brightness
-                                  value: !lambda "return id(night_light).remote_values.get_brightness();"
-                        - light.turn_on:
-                            id: night_light
-                            effect: "Breathe"
+                        - script.execute: restore_night_light_pre_effect
                       else:
                         - if:
-                            # Neither condition currently applies -- release
-                            # the light. This used to force it off whenever
-                            # at least one notification switch was armed,
-                            # even if that switch's own condition wasn't
-                            # currently true (e.g. Problem Notification on
-                            # but no actual problem, or Operating
-                            # Notification just switched off). That meant a
-                            # switch being *armed* was enough to lock out
-                            # manual control of the entity, which isn't what
-                            # we want: each switch should only take the
-                            # light over *while its own condition is
-                            # actively true*, and hand it right back the
-                            # moment it isn't -- Problem still wins priority
-                            # over Operating (see the outer/middle branches
-                            # above), but neither should claim the light
-                            # just for being armed.
-                            #
-                            # So: if an effect is currently running, stop it
-                            # and put the entity back exactly where it was
-                            # *before* the first of the two blocks above
-                            # seized it (night_light_pre_effect_on/
-                            # _brightness) -- not wherever the effect's last
-                            # tick happened to leave it. If no effect is
-                            # running, this is a deliberate no-op -- don't
-                            # touch a light nothing is governing.
                             condition:
-                              lambda: "return id(night_light).get_current_effect_index() != 0;"
+                              and:
+                                - lambda: "return id(night_light_operating_enabled);"
+                                - binary_sensor.is_on: mist_active
                             then:
                               - if:
                                   condition:
-                                    lambda: "return id(night_light_pre_effect_on);"
+                                    lambda: "return id(night_light_active_reason) == 0;"
                                   then:
-                                    # Two steps, not one -- ESPHome's config
-                                    # validation flat out rejects effect:
-                                    # and transition_length: in the same
-                                    # light.turn_on: (they're in the same
-                                    # "transformer" exclusion group, along
-                                    # with flash). Step 1 stops the running
-                                    # effect (effect: "None"); step 2 then
-                                    # snaps to the saved brightness with no
-                                    # fade. Splitting them this way avoids
-                                    # that conflict, and also sidesteps the
-                                    # OTHER landmine -- combining effect:
-                                    # "None" with state: false in one call
-                                    # makes ESPHome log "cannot start effect
-                                    # when turning off" and silently drop
-                                    # the effect, so OFF is handled as its
-                                    # own light.turn_off: below instead,
-                                    # which stops any active effect on its
-                                    # own without needing an effect: field.
-                                    - light.turn_on:
-                                        id: night_light
-                                        effect: "None"
-                                    - light.turn_on:
-                                        id: night_light
-                                        brightness: !lambda "return id(night_light_pre_effect_brightness);"
-                                        transition_length: 0s
-                                  else:
+                                    - globals.set:
+                                        id: night_light_pre_effect_on
+                                        value: !lambda "return id(night_light).remote_values.is_on();"
+                                    - globals.set:
+                                        id: night_light_pre_effect_brightness
+                                        value: !lambda "return id(night_light).remote_values.get_brightness();"
+                              - globals.set:
+                                  id: night_light_active_reason
+                                  value: "2"
+                              - light.turn_on:
+                                  id: night_light
+                                  effect: "Breathe"
+                            else:
+                              # Mist just stopped while Operating was
+                              # governing the light (this branch is only
+                              # ever reached with night_light_active_reason
+                              # == 2 -- reason == 1 is intercepted higher up,
+                              # and reason == 0 means nothing is governing it
+                              # so there's nothing to release). Unlike a
+                              # Problem clearing, Operating stopping doesn't
+                              # restore night_light_pre_effect_on/
+                              # _brightness -- Breathe is a live indicator of
+                              # "currently misting", not a temporary
+                              # interruption of a manual setting, so once
+                              # misting stops the entity should just go off
+                              # outright, ready to pulse again on its own the
+                              # next time mist_active turns back on. This
+                              # also used to force it off whenever at least
+                              # one notification switch was armed, even if
+                              # that switch's own condition wasn't currently
+                              # true (e.g. Problem Notification on but no
+                              # actual problem, or Operating Notification
+                              # just switched off) -- that meant a switch
+                              # being *armed* was enough to lock out manual
+                              # control of the entity, which isn't what we
+                              # want: each switch should only take the light
+                              # over *while its own condition is actively
+                              # true*, and hand it right back the moment it
+                              # isn't -- Problem still wins priority over
+                              # Operating (see the outer/middle branches
+                              # above), but neither should claim the light
+                              # just for being armed.
+                              - if:
+                                  condition:
+                                    lambda: "return id(night_light_active_reason) != 0;"
+                                  then:
+                                    - globals.set:
+                                        id: night_light_active_reason
+                                        value: "0"
                                     - light.turn_off:
                                         id: night_light
                                         transition_length: 0s
+
+  # Shared by both "nothing governs the light anymore" exits above: puts the
+  # Night Light entity back exactly where it was *before* Problem or
+  # Operating last seized it (night_light_pre_effect_on/_brightness), not
+  # wherever the effect's last tick happened to leave it.
+  - id: restore_night_light_pre_effect
+    mode: restart
+    then:
+      - globals.set:
+          id: night_light_active_reason
+          value: "0"
+      - if:
+          condition:
+            lambda: "return id(night_light_pre_effect_on);"
+          then:
+            # Two steps, not one -- ESPHome's config validation flat out
+            # rejects effect: and transition_length: in the same
+            # light.turn_on: (they're in the same "transformer" exclusion
+            # group, along with flash). Step 1 stops the running effect
+            # (effect: "None"); step 2 then snaps to the saved brightness
+            # with no fade. Splitting them this way avoids that conflict,
+            # and also sidesteps the OTHER landmine -- combining effect:
+            # "None" with state: false in one call makes ESPHome log
+            # "cannot start effect when turning off" and silently drop the
+            # effect, so OFF is handled as its own light.turn_off: below
+            # instead, which stops any active effect on its own without
+            # needing an effect: field.
+            - light.turn_on:
+                id: night_light
+                effect: "None"
+            - light.turn_on:
+                id: night_light
+                brightness: !lambda "return id(night_light_pre_effect_brightness);"
+                transition_length: 0s
+          else:
+            - light.turn_off:
+                id: night_light
+                transition_length: 0s
